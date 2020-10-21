@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cross-cluster-connectivity
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: connectivity-registry
+  namespace: cross-cluster-connectivity
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connectivity-registry
+  namespace: cross-cluster-connectivity
+  labels:
+    app: connectivity-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectivity-registry
+  template:
+    metadata:
+      labels:
+        app: connectivity-registry
+    spec:
+      serviceAccountName: connectivity-registry
+      containers:
+      - name: connectivity-registry
+        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/connectivity-registry:dev
+        # remove this when testing on a remote cluster
+        imagePullPolicy: Never
+        args:
+        - --tls-cert=/certs/server.crt
+        - --tls-key=/certs/server.key
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: connectivity-registry-certs
+          mountPath: /certs
+          readOnly: true
+      volumes:
+        - name: connectivity-registry-certs
+          secret:
+            secretName: connectivity-registry-certs
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: connectivity-registry
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: connectivity-registry
+subjects:
+  - kind: ServiceAccount
+    name: connectivity-registry
+    namespace: cross-cluster-connectivity
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: connectivity-registry
+rules:
+  - apiGroups:
+      - "connectivity.tanzu.vmware.com"
+    resources:
+      - servicerecords
+      - remoteregistries
+    verbs:
+      - list
+      - watch
+      - create
+      - get
+      - delete
+      - update
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connectivity-registry
+  namespace: cross-cluster-connectivity
+  labels:
+    app: connectivity-registry
+spec:
+  selector:
+    app: connectivity-registry
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    nodePort: 30001
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connectivity-registry-certs
+  namespace: cross-cluster-connectivity
+type: Opaque
+data:
+  # certs here are from cmd/connectivity-registry/certs
+  server.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVPVENDQWlHZ0F3SUJBZ0lSQUlvTzBZM1Vrem1FQllJMjR6VDF4dTR3RFFZSktvWklodmNOQVFFTEJRQXcKRVRFUE1BMEdBMVVFQXhNR1ptRnJaVU5CTUI0WERUSXdNVEF5TURJeU1EUXhNRm9YRFRJeU1EUXlNREU1TWpRMApOMW93TERFcU1DZ0dBMVVFQXhNaGMyaGhjbVZrTFhObGNuWnBZMlZ6TFhKbFoybHpkSEo1TG5oall5NTBaWE4wCk1JSUJJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBMU45S0U4alNmYzBFeFdoN2JVQkMKcjMvY2lPdSs4ZFlhSVFjdi9kZWVqOHlWTzl1QnFuNGRoVE1YM3ozTWh5NXNyU0FBTXJHM1R3U20yZ2kvWFdTKwprWU4rUmU5WjJ1U09tM2hHVFNmK1RFcVc5VU5qdmdnWjMrc2V2RkNVUHhhSUZpYlBNY1lISEhGdjRFL0kwNkE0CnNxQmgwM3lBRXRqeG0zdXpxcVp2UUhCdDBXaU9HbjVrVFhVc0F5Ry80c0pzVWxPVWQ3azhxajltMzBwSDlXZkUKRithcmNMM1lXY3l4anhZaE00U2ZrYjNlbmh5aml5UTQ1ZFN3SFA0SGdObE1UVTY3YzlkS0EvVnZJV1hDSjdWUApOL3UwQ3c2MUo4cENQdXFwRWkwV0VrakJCV2pzUk9zQVFwYXVjaGk5elVWdWc4eVpDU3FiQjM5TThmRDM1dVlQCnZRSURBUUFCbzNFd2J6QU9CZ05WSFE4QkFmOEVCQU1DQTdnd0hRWURWUjBsQkJZd0ZBWUlLd1lCQlFVSEF3RUcKQ0NzR0FRVUZCd01DTUIwR0ExVWREZ1FXQkJRQ1RLajRhdnZRdm5NQkwwK3hKVkVsWFdRZ1lUQWZCZ05WSFNNRQpHREFXZ0JRdFZTTnJtNUt3UWI0dmhlcFk5STFhWkUvMjN6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FnRUFtRVRzCnVOR3JicmNzK2V4bjN0dHdueVowOUxNUG1uNmpuTHd5VTVTcCs0UnUrVTI4d21GN08zU0YvbEdkVklOdlFCUzUKQ3BYTXlpdUFWYUxPQ2F6OW1WTVIxNTZjeHZmQXlBSjBxK25FZDI0TE95eEtOK292eDdKRllxR29VbXoxc285bgoyWjErVnNMdWdpNnZnRWpLNDVHWE9HSUcvRlVmbVNaSUxPMU1zKzAxa29IUklsdmQ0SGNmbkFxVWIyTW1vSDU4CndJWFV2WXh6SVN5VnIrN2lSWVFIWUpSTVNkeUFqRGtRZkhOL0JXNG9RSjZZbWU2aGFPUHUvM0k2UWJhWDFoRW0Kd0hMWTFGRFpNME4wY3NNSERMTHZsM0NHaUdRYTlTbXlIM0E4VDNFVVIvUzFSWXB5dGt4WmFmWTJ1MzhGN0h6UApXa1ptdS8yTXJ3dTRQRXJzQTRoSWowVFdERmhoUlB1ZXRPcU9VS295eThId1RHZkZlWHZqNnFHUTRjTmhsTlRNCmNMVzN4Ujk4WEdaU2lOU0dEMnBwdDlGMHI0SlA1eEZmNm9UTUdGT0pMTTMyaFFoRzFWbTJEa0Mwck1PeUp2ZjgKYXhTNHpqakx6bWxudU1uQVdLU3pnc3F5am55S1J2eUxxdzVlTFJDTzd3dk5MTmkzSzh1L00waG4xYVZpWkljdwpLYnpUaUVYMmVlc0M0dC9PSGNGWFR6WC83YzhhNjVUdkFHcEJlQkZYU0ZueDBtaFVWRWFkNWhDWmgwZkV2bXoxCnMxejVRZHVRaldDQkloUTFlMytwYmtvRGtUMDdNdGozR1ZOL2hSRFM5dnpSNG1hNmxIUWlxb0l1ajREeE5ZdXUKM3FEejdIa2xXc1FhY1JpNnQ2ZEtPWFFsUWtHU0Y2SithS2plR2U0PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  server.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBMU45S0U4alNmYzBFeFdoN2JVQkNyMy9jaU91KzhkWWFJUWN2L2RlZWo4eVZPOXVCCnFuNGRoVE1YM3ozTWh5NXNyU0FBTXJHM1R3U20yZ2kvWFdTK2tZTitSZTlaMnVTT20zaEdUU2YrVEVxVzlVTmoKdmdnWjMrc2V2RkNVUHhhSUZpYlBNY1lISEhGdjRFL0kwNkE0c3FCaDAzeUFFdGp4bTN1enFxWnZRSEJ0MFdpTwpHbjVrVFhVc0F5Ry80c0pzVWxPVWQ3azhxajltMzBwSDlXZkVGK2FyY0wzWVdjeXhqeFloTTRTZmtiM2VuaHlqCml5UTQ1ZFN3SFA0SGdObE1UVTY3YzlkS0EvVnZJV1hDSjdWUE4vdTBDdzYxSjhwQ1B1cXBFaTBXRWtqQkJXanMKUk9zQVFwYXVjaGk5elVWdWc4eVpDU3FiQjM5TThmRDM1dVlQdlFJREFRQUJBb0lCQVFDTUFQdDRmYWtyQWc4MApRcDZDNFRPNnQwNTFZdzluZ05nWWh1Q2loQkNPSlJDMW1JMzBjeE81U2p4V0lCQUhqSm4vVnorcUY4WW5HemtkCng0a014TGl0Zlowc0k5cW1JNUpEWUZ4a1hIeGM4dVhNRTNGalIzSzFHYTlTVFhEaStVK3h1ZjZsanNlWWhtYjkKVVp3VXk1amVxcXNNYkNMVHdvbE5LSk9uRmVXdnE4NjhFa2pVTXhJZDVKdHh3WWZ0NHkycmd5empCNW11K0pYTQpHZnkrWm1MeTNGS1VkaVBGeFhaZGFIVjg3OHRZMFoxb0xtZzNkVmFGZzlSWWJiTlFaOEx5K3kwQnlWMlJ6QWo3CkJFWEFBdERrYmpqNEZIeGdUbkF5dXhmYVg1VmMwTVBLRTdDVDFDUUpkTm9xUnAxNGNXNWJIMk1iRkN4cFF1WmEKTmtoeC84Q0ZBb0dCQU44ZUk3MUlGNlFqUWc4Nm1Vc1R2QmxsWTBwOWFWL2dYOEpDcHRWNnUwYnhZVDZzTjNPZwptbldrTUF1SjJHRWNsSDBNWDlWNjlSU0cyMkUxemU5cjNzUEIwZjlYS0NIWjZCdXVsT3BJTkFkNWFFVGdteUx5CmlqSXFPZUNiUEF1MW12UzJlRE5iVUxyNWp5V29BbkxINE9JRVhFbXYyVmRSOG9OMlNZMi9yKzlmQW9HQkFQUSsKbXBFK3dnTHZLai9CNnJZYnYxaXdQd2tIM2srNHhkc3FkUnFpblZMb3NxTktsL1hjbDhQU0RrNVFwMHQ5bm8rNQplT2VwaUZnT0tZU2R3U3NDZnNaZVFNbzMwQUxDQVNWWGVkS1VXaWNwQWIzbEZ3MXk3TFZOM0RPWUlLZzRJOG93CllVWDhGbGUyRkxRMFk2ak5PY3NUbHRTbG5JMjR2OVpZeCtGMW1rSmpBb0dCQUp3MEE1MXVyVzV5YUxzMHNVR0kKalhYU0w1TmsvYkxyNk42ZHZ5TlNDMjc5YXJGdjdGcDlJK1ljanE1bFVTR2IyckU1U3Bhd3dJZ2dhZEpDMHV3OQp2dldaNmlVenBac2RiWXlEeXluQ1p2cWNtczB0Mmk2N1V0a1FDdmtlZFFsVm1TaWQzc1ZGdHQxUC9sSEVzQUlmCndXYzYya21VWFRydTJqUURTamQ4N2ZWTkFvR0FaY3RadkVNOXROOWM2bW0xbXVTQm9VTURZbzRtOTI3NDkxa0EKcVhNd3dvYzlQSlV3TkVZVjhvVXZkVEJrS1RCWHoycnJteEdyUTVmVGNmUVZ1QWs0TVJERFRBUnE2MXRVQXU0cwpWYm1Dd1dOejJHTU1jb3g5WHlydUpZcTN3YVIwTmlabnhEVkdVcFFPbVBSa3ZNdWIxS2w3YVhFRWlJU0JYNkpzCjIraVp2Q1VDZ1lFQW9OamJOZnZKbEhWNklOY21MS3RsM0I2cEYxNFY4Y1dRTjNiUnM0elA3RDYrY3Y5dUU3dTAKMkd2aVZDMmFaZ2FBVDhWeXZnVjIydk42M3RNRjM4RFdMZjVqcXdibnFlYlYvUFdQcXl5d1hscm1HYmJFS2wxRgpJWkdyUDg2ODdXUmF1c0xWcXl3dU5xbW8rbFpBRUthbU5SSE9WVWliTHpSazhtNjJRK2lmdDRzPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=

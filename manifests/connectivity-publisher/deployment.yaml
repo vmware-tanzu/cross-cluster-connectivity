@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cross-cluster-connectivity
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: connectivity-publisher
+  namespace: cross-cluster-connectivity
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connectivity-publisher
+  namespace: cross-cluster-connectivity
+  labels:
+    app: connectivity-publisher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectivity-publisher
+  template:
+    metadata:
+      labels:
+        app: connectivity-publisher
+    spec:
+      serviceAccountName: connectivity-publisher
+      containers:
+      - name: connectivity-publisher
+        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/connectivity-publisher:dev
+        # remove this when testing on a remote cluster
+        imagePullPolicy: Never
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: connectivity-publisher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: connectivity-publisher
+subjects:
+  - kind: ServiceAccount
+    name: connectivity-publisher
+    namespace: cross-cluster-connectivity
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: connectivity-publisher
+rules:
+  - apiGroups:
+      - "connectivity.tanzu.vmware.com"
+    resources:
+      - servicerecords
+    verbs:
+      - list
+      - watch
+      - create
+      - get
+      - delete
+      - update
+  - apiGroups:
+      - "projectcontour.io"
+    resources:
+      - httpproxies
+    verbs:
+      - list
+      - watch
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - list
+      - watch
+      - get
