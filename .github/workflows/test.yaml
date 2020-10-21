@@ -1,0 +1,13 @@
+name: Test
+on: push
+jobs:
+  run-unit-tests:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1'
+      - run: go get -u github.com/onsi/ginkgo/ginkgo
+      - run: make test-unit
