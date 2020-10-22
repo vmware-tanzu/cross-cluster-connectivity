@@ -52,6 +52,16 @@ With the clusters created by the instructions above, run the following command:
 make test-connectivity
 ```
 
+### Add license to source files
+
+If you are introducing any new source files, then you must add the
+[license](https://github.com/vmware-tanzu/cross-cluster-connectivity/blob/main/hack/license.txt)
+to the top of every file. This can be done automatically for `.go` files using:
+
+```
+make addlicense
+```
+
 ## Contributor Workflow
 
 This section describes the process for contributing a bug fix or new feature.
@@ -71,6 +81,7 @@ it.
   before we can merge.
 * Add any test cases where they make sense.
 * Update any document as applicable.
+* Add license to any new source files
 * Sign the CLA
 
 ## CLA
