@@ -26,10 +26,6 @@ even when:
 * No multi-tenancy support, yet
 * No IPv6 support, yet
 
-## Features
-
-List of features in bullet points
-
 ## Getting Started
 
 These instructions will setup the project on a [Kind](https://kind.sigs.k8s.io/)
