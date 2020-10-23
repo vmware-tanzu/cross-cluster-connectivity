@@ -56,7 +56,7 @@ make test-connectivity
 
 If you are introducing any new source files, then you must add the
 [license](https://github.com/vmware-tanzu/cross-cluster-connectivity/blob/main/hack/license.txt)
-to the top of every file. This can be done automatically for `.go` files using:
+to the top of every file. This can be done automatically using:
 
 ```
 make addlicense

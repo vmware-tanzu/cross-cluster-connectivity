@@ -79,11 +79,13 @@ $(CONTROLLER_GEN): # Build controller-gen from tools folder.
 .PHONY: addlicense
 addlicense:
 	# requires https://github.com/google/addlicense
-	# Only checks .go files at the moment
-	addlicense -f ./hack/license.txt $(shell find . -name *.go)
+	addlicense -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.go)
+	addlicense -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.sh)
+	addlicense -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name Dockerfile)
 
 .PHONY: checklicense
 checklicense:
 	# requires https://github.com/google/addlicense
-	# Only checks .go files at the moment
-	addlicense -check -f ./hack/license.txt $(shell find . -name *.go)
+	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.go)
+	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.sh)
+	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name Dockerfile)
