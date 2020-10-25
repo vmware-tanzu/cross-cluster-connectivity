@@ -95,7 +95,7 @@ SHARED_SERVICE_CLUSTER_KUBECONFIG=shared-services.kubeconfig
 function check_dependencies() {
   # Ensure Kind 0.7.0+ is available.
   command -v kind >/dev/null 2>&1 || fatal "kind 0.7.0+ is required"
-  if [[ 10#"$(kind --version 2>&1 | awk '{print $3}' | tr -d '.')" -lt 10#070 ]]; then
+  if [[ 10#"$(kind --version 2>&1 | awk '{print $3}' | tr -d '.' | cut -d '-' -f1)" -lt 10#070 ]]; then
     echo "kind 0.7.0+ is required" && exit 1
   fi
 
