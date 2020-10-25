@@ -35,7 +35,7 @@ not currently covered in these docs.
 
 ### Prerequisites
 
-* [kind](https://kind.sigs.k8s.io/) 0.7.0
+* [kind](https://kind.sigs.k8s.io/) 0.7.0+
 * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 * [clusterctl](https://cluster-api.sigs.k8s.io/clusterctl/overview.html)
 * [kustomize](https://kustomize.io/)
