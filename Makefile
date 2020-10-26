@@ -27,6 +27,9 @@ e2e-down:
 .PHONY: test
 test: test-unit test-connectivity
 
+.PHONY: test-full
+test-full: test-unit build-images e2e-down e2e-up test-connectivity
+
 .PHONY: test-unit
 test-unit:
 	ginkgo -v -r $(PWD)/pkg $(PWD)/cmd/connectivity-registry
