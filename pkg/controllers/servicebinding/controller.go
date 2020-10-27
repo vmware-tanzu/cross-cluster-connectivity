@@ -273,7 +273,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 	}
 
 	// fetch the latest Service from cache
-	currentService, err := s.serviceLister.Services(connectivityv1alpha1.ConnectivityNamespace).Get(serviceName)
+	currentService, err := s.serviceLister.Services(fs.Namespace).Get(serviceName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("error syncing Service for imported ServiceRecord %s: %v", fs.Namespace+"/"+fs.Name, err)
 	}
@@ -282,7 +282,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 		newService := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            serviceName,
-				Namespace:       connectivityv1alpha1.ConnectivityNamespace,
+				Namespace:       fs.Namespace,
 				OwnerReferences: ownerReferences,
 				Annotations: map[string]string{
 					connectivityv1alpha1.FQDNAnnotation: fs.Spec.FQDN,
@@ -376,7 +376,7 @@ func (s *ServiceBindingController) syncEndpoints(fs *connectivityv1alpha1.Servic
 	endpointsName := serviceNameForFQDN(fs.Spec.FQDN)
 
 	// fetch the latest Endpoints from cache
-	currentEndpoints, err := s.endpointsLister.Endpoints(connectivityv1alpha1.ConnectivityNamespace).Get(endpointsName)
+	currentEndpoints, err := s.endpointsLister.Endpoints(fs.Namespace).Get(endpointsName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("error syncing Endpoints for imported ServiceRecord %s: %v", fs.Namespace+"/"+fs.Name, err)
 	}
@@ -386,7 +386,7 @@ func (s *ServiceBindingController) syncEndpoints(fs *connectivityv1alpha1.Servic
 		endpoints := &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            endpointsName,
-				Namespace:       connectivityv1alpha1.ConnectivityNamespace,
+				Namespace:       fs.Namespace,
 				OwnerReferences: ownerReferences,
 			},
 			Subsets: desiredSubsets,
