@@ -21,9 +21,6 @@ const (
 	ConnectivityRemoteRegistryLabel   = "connectivity.tanzu.vmware.com/remote-registry"
 	ConnectivityClusterNameLabel      = "connectivity.tanzu.vmware.com/cluster-name"
 	ConnectivityClusterNamespaceLabel = "connectivity.tanzu.vmware.com/cluster-namespace"
-
-	// TODO: Don't hardcode the namespace
-	ConnectivityNamespace = "cross-cluster-connectivity"
 )
 
 // +genclient
