@@ -845,8 +845,10 @@ func setupTestcase(t *testing.T, testCaseHttpProxy *contourv1.HTTPProxy, testCas
 	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactory(connClientset, 30*time.Second)
 	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 
+	namespace := "cross-cluster-connectivity"
+
 	httpProxyPublishController, err := NewHTTPProxyPublishController(
-		nodeInformer, contourInformer, serviceRecordInformer, connClientset)
+		nodeInformer, contourInformer, serviceRecordInformer, connClientset, namespace)
 	if err != nil {
 		t.Fatalf("error creating HTTPProxyPublish controller: %v", err)
 	}
