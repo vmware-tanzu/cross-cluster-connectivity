@@ -15,11 +15,11 @@ import (
 	"path/filepath"
 	"time"
 
-	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+var connectivityNamespace = "cross-cluster-connectivity"
 
 var _ = Describe("Exported Service", func() {
 	var certsDir string
@@ -65,19 +65,19 @@ var _ = Describe("Exported Service", func() {
 		By("ensuring cross-cluster-connectivity managed resources are cleaned up")
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(sharedServiceClusterKubeConfig,
-				"get", "servicerecord", "-n", connectivityv1alpha1.ConnectivityNamespace)
+				"get", "servicerecord", "-n", connectivityNamespace)
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx.xcc.test"))
 
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(workloadClusterKubeConfig,
-				"get", "servicerecord", "-n", connectivityv1alpha1.ConnectivityNamespace)
+				"get", "servicerecord", "-n", connectivityNamespace)
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx.xcc.test"))
 
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(workloadClusterKubeConfig,
-				"get", "service", "-n", connectivityv1alpha1.ConnectivityNamespace)
+				"get", "service", "-n", connectivityNamespace)
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx-xcc-test"))
 	})
@@ -86,7 +86,7 @@ var _ = Describe("Exported Service", func() {
 		By("validating it doesn't discover the shared service on the workload cluster")
 		Consistently(func() (string, error) {
 			output, err := kubectlWithConfig(workloadClusterKubeConfig,
-				"get", "svc", "-n", connectivityv1alpha1.ConnectivityNamespace)
+				"get", "svc", "-n", connectivityNamespace)
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx-xcc-test"))
 
