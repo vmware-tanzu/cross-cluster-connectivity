@@ -38,18 +38,23 @@ type registryClient struct {
 	reDial chan struct{}
 	// send to this channel when RemoteRegistry resource is deleted
 	stopCh chan struct{}
+
+	namespace string
 }
 
 func newRegistryClient(
 	remoteRegistry *connectivityv1alpha1.RemoteRegistry,
 	connClientSet connectivityclientset.Interface,
-	serviceRecordLister connectivitylisters.ServiceRecordLister) *registryClient {
+	serviceRecordLister connectivitylisters.ServiceRecordLister,
+	namespace string,
+) *registryClient {
 	return &registryClient{
 		remoteRegistry:      remoteRegistry,
 		connClientSet:       connClientSet,
 		serviceRecordLister: serviceRecordLister,
 		reDial:              make(chan struct{}),
 		stopCh:              make(chan struct{}),
+		namespace:           namespace,
 	}
 }
 
@@ -216,7 +221,7 @@ func (r *registryClient) convertToKubernetesServiceRecord(fs *hamletv1alpha1.Fed
 			// TODO: account for FQDN ending in "."
 			// TODO: account for 64 character limit for resource names
 			Name:      generateServiceRecordName(fs.Fqdn, r.remoteRegistry.Name),
-			Namespace: connectivityv1alpha1.ConnectivityNamespace,
+			Namespace: r.namespace,
 			Labels: map[string]string{
 				connectivityv1alpha1.ImportedLabel:                   "",
 				connectivityv1alpha1.ConnectivityRemoteRegistryLabel: r.remoteRegistry.Name,
