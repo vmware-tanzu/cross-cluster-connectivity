@@ -13,11 +13,11 @@ import (
 	"github.com/vmware/hamlet/pkg/server"
 
 	log "github.com/sirupsen/logrus"
-	hamletv1alpha1 "github.com/vmware/hamlet/api/types/v1alpha1"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/registryclient"
 	clientsetfake "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/clientset/versioned/fake"
 	connectivityinformers "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/informers/externalversions"
+	hamletv1alpha1 "github.com/vmware/hamlet/api/types/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -61,7 +61,9 @@ var _ = Describe("ClientController", func() {
 		remoteRegistryInformer := connectivityInformerFactory.Connectivity().V1alpha1().RemoteRegistries()
 		registryClientController := registryclient.NewRegistryClientController(connClientset,
 			remoteRegistryInformer,
-			serviceRecordInformer)
+			serviceRecordInformer,
+			"cross-cluster-connectivity",
+		)
 
 		connectivityInformerFactory.Start(nil)
 		connectivityInformerFactory.WaitForCacheSync(nil)

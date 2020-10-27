@@ -33,17 +33,23 @@ type RegistryClientController struct {
 	serviceRecordLister connectivitylisters.ServiceRecordLister
 
 	workqueue workqueue.RateLimitingInterface
+
+	namespace string
 }
 
-func NewRegistryClientController(connClientSet connectivityclientset.Interface,
+func NewRegistryClientController(
+	connClientSet connectivityclientset.Interface,
 	remoteRegistryInformer connectivityinformers.RemoteRegistryInformer,
-	serviceRecordInformer connectivityinformers.ServiceRecordInformer) *RegistryClientController {
+	serviceRecordInformer connectivityinformers.ServiceRecordInformer,
+	namespace string,
+) *RegistryClientController {
 	controller := &RegistryClientController{
 		clients:             map[string]*registryClient{},
 		connClientSet:       connClientSet,
 		registryLister:      remoteRegistryInformer.Lister(),
 		serviceRecordLister: serviceRecordInformer.Lister(),
 		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RemoteRegistries"),
+		namespace:           namespace,
 	}
 
 	remoteRegistryInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -142,8 +148,12 @@ func (r *RegistryClientController) syncHandler(key string) error {
 		cachedRegistryClient.redial(remoteRegistry)
 	} else {
 		// client for RemoteRegistry doesn't exist, create a remote registry client
-		registryClient := newRegistryClient(remoteRegistry, r.connClientSet,
-			r.serviceRecordLister)
+		registryClient := newRegistryClient(
+			remoteRegistry,
+			r.connClientSet,
+			r.serviceRecordLister,
+			r.namespace,
+		)
 
 		log.WithField("remoteregistry", fmt.Sprintf("%s/%s",
 			remoteRegistry.Namespace, remoteRegistry.Name)).

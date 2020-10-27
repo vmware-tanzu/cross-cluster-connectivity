@@ -48,13 +48,24 @@ func main() {
 	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 	remoteRegistryInformer := connectivityInformerFactory.Connectivity().V1alpha1().RemoteRegistries()
 
+	namespace, exists := os.LookupEnv("NAMESPACE")
+	if !exists {
+		log.Error("NAMESPACE environment variable has not been set")
+		os.Exit(1)
+	}
+
 	registryServerController, err := registryserver.NewRegistryServerController(uint32(port), tlsCertPath, tlsKeyPath, serviceRecordInformer)
 	if err != nil {
 		log.Errorf("error creating RegistryServer controller: %v", err)
 		os.Exit(1)
 	}
 
-	registryClientController := registryclient.NewRegistryClientController(connectivityClientset, remoteRegistryInformer, serviceRecordInformer)
+	registryClientController := registryclient.NewRegistryClientController(
+		connectivityClientset,
+		remoteRegistryInformer,
+		serviceRecordInformer,
+		namespace,
+	)
 
 	stopCh := make(chan struct{})
 	connectivityInformerFactory.Start(stopCh)
