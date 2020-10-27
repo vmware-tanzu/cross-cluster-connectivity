@@ -58,8 +58,14 @@ func main() {
 	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactory(connectivityClientset, 30*time.Second)
 	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 
+	namespace, exists := os.LookupEnv("NAMESPACE")
+	if !exists {
+		log.Error("NAMESPACE environment variable has not been set")
+		os.Exit(1)
+	}
+
 	httpProxyPublishController, err := httpproxypublish.NewHTTPProxyPublishController(
-		nodeInformer, contourInformer, serviceRecordInformer, connectivityClientset)
+		nodeInformer, contourInformer, serviceRecordInformer, connectivityClientset, namespace)
 	if err != nil {
 		log.Errorf("error creating HTTPProxyPublish controller: %v", err)
 		os.Exit(1)

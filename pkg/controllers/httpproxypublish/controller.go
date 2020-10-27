@@ -44,6 +44,8 @@ type HTTPProxyPublishController struct {
 	workqueue workqueue.RateLimitingInterface
 
 	deletedIndexer cache.Indexer
+
+	namespace string
 }
 
 var (
@@ -72,7 +74,8 @@ var (
 func NewHTTPProxyPublishController(nodeinformer v1informers.NodeInformer,
 	contourInformer informers.GenericInformer,
 	serviceRecordInformer connectivityinformers.ServiceRecordInformer,
-	connClientset connectivityclientset.Interface) (*HTTPProxyPublishController, error) {
+	connClientset connectivityclientset.Interface,
+	namespace string) (*HTTPProxyPublishController, error) {
 
 	controller := &HTTPProxyPublishController{
 		scheme:              runtime.NewScheme(),
@@ -82,6 +85,7 @@ func NewHTTPProxyPublishController(nodeinformer v1informers.NodeInformer,
 		connClientset:       connClientset,
 		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "HTTPProxies"),
 		deletedIndexer:      cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{}),
+		namespace:           namespace,
 	}
 
 	if err := ContourV1AddToScheme(controller.scheme); err != nil {
@@ -357,7 +361,7 @@ func (h *HTTPProxyPublishController) convertToServiceRecord(httpProxy *contourv1
 	serviceRecord := &connectivityv1alpha1.ServiceRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      httpProxy.Spec.VirtualHost.Fqdn,
-			Namespace: connectivityv1alpha1.ConnectivityNamespace,
+			Namespace: h.namespace,
 			Labels: map[string]string{
 				connectivityv1alpha1.ExportLabel: "",
 			},
