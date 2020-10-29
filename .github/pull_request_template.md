@@ -1,8 +1,3 @@
----
-name: Pull Request
-about: Tell us about your contribution
----
-
 <!-- Thanks for contributing to Cross-cluster Connectivity! -->
 
 <!--
