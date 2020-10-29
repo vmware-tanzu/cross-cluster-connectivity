@@ -92,3 +92,15 @@ checklicense:
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.go)
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.sh)
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name Dockerfile)
+
+.PHONY: example-deploy-nginx
+example-deploy-nginx:
+	kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/certs.yaml
+	kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/nginx.yaml
+	kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/exported_http_proxy.yaml
+
+.PHONY: example-curl-nginx
+example-curl-nginx:
+	kubectl --kubeconfig ./workloads.kubeconfig run -it --rm --restart=Never \
+		--image=curlimages/curl curl -- \
+		curl -v -k "https://nginx.xcc.test"
