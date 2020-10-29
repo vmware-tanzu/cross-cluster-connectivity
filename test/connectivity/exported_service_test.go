@@ -51,7 +51,7 @@ var _ = Describe("Exported Service", func() {
 
 		// Deploy nginx yaml to shared-service cluster
 		_, err = kubectlWithConfig(sharedServiceClusterKubeConfig,
-			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx.yaml"))
+			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "nginx.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -92,7 +92,7 @@ var _ = Describe("Exported Service", func() {
 
 		By("declaring intent to export the shared service to the workload cluster")
 		_, err := kubectlWithConfig(sharedServiceClusterKubeConfig,
-			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "exported_http_proxy.yaml"))
+			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "exported_http_proxy.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating it can connect to the shared service on the workload cluster")

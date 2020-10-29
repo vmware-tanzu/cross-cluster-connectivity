@@ -74,8 +74,8 @@ not currently covered in these docs.
 
 ### Deploy an example shared service
 
-There is a set of manifests within `./manifests/example/` to serve as an example
-of how to deploy and export an Nginx deployment to the workload cluster.
+There is a set of manifests within `./manifests/example/nginx` to serve as an
+example of how to deploy and export an Nginx deployment to the workload cluster.
 
 1. Deploy [cert-manager](https://cert-manager.io/) to generate self-signed
    certificates for the Nginx deployment and wait for cert-manager to be ready.
@@ -84,23 +84,23 @@ of how to deploy and export an Nginx deployment to the workload cluster.
    $ kubectl --kubeconfig ./shared-services.kubeconfig wait --for=condition=Available --timeout=300s apiservice v1beta1.webhook.cert-manager.io
    ```
 
-1. Apply the `./manifests/example/certs.yaml` to create self-signed certificates
+1. Apply the `./manifests/example/nginx/certs.yaml` to create self-signed certificates
    for Nginx.
    ```bash
-   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/certs.yaml
+   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/certs.yaml
    ```
 
 1. Apply the `./manfiests/example/nginx.yaml` to create the Nginx deployment and
    Nginx Kubernetes service.
    ```bash
-   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx.yaml
+   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/nginx.yaml
    ```
 
-1. Apply the `./manifests/example/exported_http_proxy.yaml` to create a Contour
+1. Apply the `./manifests/example/nginx/exported_http_proxy.yaml` to create a Contour
    HTTPProxy resource that has been labeled with
    `connectivity.tanzu.vmware.com/export` to declare it as an exported service.
    ```bash
-   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/exported_http_proxy.yaml
+   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/exported_http_proxy.yaml
    ```
 
 1. Test connectivity to the shared service from the workload cluster.
