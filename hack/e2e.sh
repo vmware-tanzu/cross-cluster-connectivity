@@ -332,7 +332,7 @@ function apply_remote_registry() {
   )"
 
   sed "s/SHARED_SERVICE_NODE_IP/${shared_service_node_ip}/g" \
-    manifests/remoteregistry.yaml | \
+    hack/manifests/e2e/remoteregistry.yaml | \
     kubectl --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} apply -f -
 }
 
