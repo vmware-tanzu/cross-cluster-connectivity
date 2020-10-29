@@ -42,6 +42,7 @@ not currently covered in these docs.
 * [docker](https://www.docker.com/)
 * [jq](https://stedolan.github.io/jq/) 1.3+
 * [make](https://www.gnu.org/software/make/)
+* [ytt](https://get-ytt.io/)
 * Docker requires at least 4GB of memory.
 
 ### Installing on Kind
@@ -77,15 +78,9 @@ not currently covered in these docs.
 There is a set of manifests within `./manifests/example/nginx` to serve as an
 example of how to deploy and export an Nginx deployment to the workload cluster.
 
-1. Deploy [cert-manager](https://cert-manager.io/) to generate self-signed
-   certificates for the Nginx deployment and wait for cert-manager to be ready.
-   ```bash
-   $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f https://github.com/jetstack/cert-manager/releases/download/v0.11.0/cert-manager.yaml
-   $ kubectl --kubeconfig ./shared-services.kubeconfig wait --for=condition=Available --timeout=300s apiservice v1beta1.webhook.cert-manager.io
-   ```
-
 1. Apply the `./manifests/example/nginx/certs.yaml` to create self-signed certificates
-   for Nginx.
+   for Nginx. This manifest depends on [cert-manager](https://cert-manager.io),
+   which is deployed for you when using `make e2e-up`.
    ```bash
    $ kubectl --kubeconfig ./shared-services.kubeconfig apply -f ./manifests/example/nginx/certs.yaml
    ```

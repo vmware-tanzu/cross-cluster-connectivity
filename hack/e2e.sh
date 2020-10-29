@@ -250,6 +250,9 @@ function create_cluster() {
   # Deploy Calico cni into CAPD cluster.
   ${clusterkubectl} apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
 
+  # Deploy cert-manager
+  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
+
   # Wait until every node is in Ready condition.
   for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
     ${clusterkubectl} wait --for=condition=Ready --timeout=300s node/"${node}"
@@ -280,6 +283,7 @@ function create_resource_set_secret() {
 function deploy_cluster_resource_set() {
   create_resource_set_secret "connectivity-crds" "manifests/crds"
   create_resource_set_secret "connectivity-registry" "manifests/connectivity-registry"
+  create_resource_set_secret "connectivity-registry-certificates" "hack/manifests/e2e/registry_certificates.yaml"
   create_resource_set_secret "connectivity-binder" "manifests/connectivity-binder"
   create_resource_set_secret "connectivity-publisher" "manifests/connectivity-publisher"
   create_resource_set_secret "connectivity-dns" "manifests/connectivity-dns"
@@ -300,6 +304,8 @@ spec:
     - name: connectivity-crds
       kind: Secret
     - name: connectivity-registry
+      kind: Secret
+    - name: connectivity-registry-certificates
       kind: Secret
     - name: connectivity-binder
       kind: Secret
@@ -331,8 +337,20 @@ function apply_remote_registry() {
     -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'
   )"
 
-  sed "s/SHARED_SERVICE_NODE_IP/${shared_service_node_ip}/g" \
-    hack/manifests/e2e/remoteregistry.yaml | \
+  local base64_ca_cert=""
+  while [[ -z ${base64_ca_cert} ]]; do
+    base64_ca_cert="$(kubectl --kubeconfig "${SHARED_SERVICE_CLUSTER_KUBECONFIG}" \
+      -n cross-cluster-connectivity get secret connectivity-registry-certs \
+      -o json | jq -r '.data["ca.crt"]'
+    )"
+  done
+
+  ytt -f hack/manifests/e2e/remoteregistry/remoteregistry.yaml \
+    -f hack/manifests/e2e/remoteregistry/add-remote-registry-endpoints.yaml \
+    -f hack/manifests/e2e/remoteregistry/add-registry-ca.yaml \
+    -f hack/manifests/e2e/remoteregistry/values.yaml \
+    --data-value-yaml "endpoint_ips=[${shared_service_node_ip}]" \
+    --data-value-yaml "base64_ca_cert=${base64_ca_cert}" | \
     kubectl --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} apply -f -
 }
 
