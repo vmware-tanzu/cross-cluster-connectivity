@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shared-services-registry
+  namespace: cross-cluster-connectivity
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: shared-services-registry
+  namespace: cross-cluster-connectivity
+subsets:
+  - addresses:
+    - ip: SHARED_SERVICE_NODE_IP
+    ports:
+    - port: 30001
+---
+apiVersion: connectivity.tanzu.vmware.com/v1alpha1
+kind: RemoteRegistry
+metadata:
+  name: shared-services-registry
+  namespace: cross-cluster-connectivity
+spec:
+  address: "shared-services-registry.cross-cluster-connectivity.svc:443"
+  tlsConfig:
+    serverCA: SERVER_CA
+    serverName: "shared-services-registry.xcc.test"

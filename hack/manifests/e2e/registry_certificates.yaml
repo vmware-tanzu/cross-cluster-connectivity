@@ -1,0 +1,44 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-ca-issuer
+  namespace: cross-cluster-connectivity
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: registry-ca
+  namespace: cross-cluster-connectivity
+spec:
+  commonName: registry-ca.xcc.test
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: registry-ca-issuer
+  secretName: registry-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-certs-issuer
+  namespace: cross-cluster-connectivity
+spec:
+  ca:
+    secretName: registry-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: connectivity-registry-certs
+  namespace: cross-cluster-connectivity
+spec:
+  dnsNames:
+  - 'shared-services-registry.xcc.test'
+  issuerRef:
+    kind: Issuer
+    name: registry-certs-issuer
+  secretName: connectivity-registry-certs
+

@@ -1,0 +1,4 @@
+#@data/values
+---
+endpoint_ips: []
+base64_ca_cert: ""
