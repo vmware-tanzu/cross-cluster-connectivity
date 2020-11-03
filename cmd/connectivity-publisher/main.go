@@ -55,14 +55,14 @@ func main() {
 	contourInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 30*time.Second)
 	contourInformer := contourInformerFactory.ForResource(contourv1.HTTPProxyGVR)
 
-	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactory(connectivityClientset, 30*time.Second)
-	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
-
 	namespace, exists := os.LookupEnv("NAMESPACE")
 	if !exists {
 		log.Error("NAMESPACE environment variable has not been set")
 		os.Exit(1)
 	}
+
+	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactoryWithOptions(connectivityClientset, 30*time.Second, connectivityinformers.WithNamespace(namespace))
+	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 
 	httpProxyPublishController, err := httpproxypublish.NewHTTPProxyPublishController(
 		nodeInformer, contourInformer, serviceRecordInformer, connectivityClientset, namespace)
