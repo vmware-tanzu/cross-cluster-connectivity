@@ -408,6 +408,9 @@ function e2e_up() {
   # Create the workload cluster
   create_cluster $WORKLOAD_CLUSTER
 
+  # deploy addons for workload cluster
+  kubectl --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} apply -f manifests/contour/
+
   # Label the clusters so we can install our stuff with ClusterResourceSet
   kubectl_mgc -n default label cluster $SHARED_SERVICE_CLUSTER cross-cluster-connectivity=true --overwrite
   kubectl_mgc -n default label cluster $WORKLOAD_CLUSTER cross-cluster-connectivity=true --overwrite

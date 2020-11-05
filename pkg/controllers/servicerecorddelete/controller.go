@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	connectivityclientset "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/clientset/versioned"
 	connectivityinformers "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/informers/externalversions/connectivity/v1alpha1"
 	connectivitylisters "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/listers/connectivity/v1alpha1"
@@ -149,6 +150,10 @@ func (s *ServiceRecordOrphanDeleteController) sync(key string) error {
 	serviceRecord, err := s.serviceRecordLister.ServiceRecords(namespace).Get(name)
 	if err != nil {
 		return fmt.Errorf("error getting ServiceRecords from cache: %v", err)
+	}
+
+	if _, ok := serviceRecord.Labels[connectivityv1alpha1.ExportLabel]; !ok {
+		return nil
 	}
 
 	httpProxies, err := s.httpProxyLister.List(labels.Everything())
