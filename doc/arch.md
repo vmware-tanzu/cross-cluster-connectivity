@@ -1,7 +1,20 @@
 # Architecture
 
-This project is currently in the pre-alpha stage and the following architecture
-is subject to and will probably change.
+> :warning: This project is currently in the pre-alpha stage and the following
+> architecture is subject to and will probably change.
+
+This overview will explore how Cross-cluster Connectivity allows service authors
+to export services so that client applications running in other Kubernetes
+clusters can access them.
+
+The following is a very simplified diagram of how Cross-cluster Connectivity
+provides connectivity to services across multiple Kubernetes clusters:
+
+![Overview](./images/overview.jpg)
+
+Zooming into the internals of the cross-cluster-connectivity namespace
+reveals how Cross-cluster Connectivity is able to provide service
+discovery across clusters.
 
 ![Architecture](./images/architecture_diagram.jpg)
 
