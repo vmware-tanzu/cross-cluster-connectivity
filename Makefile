@@ -59,6 +59,25 @@ build-connectivity-registry:
 build-connectivity-dns:
 	docker build -f cmd/connectivity-dns/Dockerfile -t $(CONNECTIVITY_DNS_IMAGE) .
 
+.PHONY: push-images
+push-images: push-connectivity-publisher push-connectivity-binder push-connectivity-registry push-connectivity-dns
+
+.PHONY: push-connectivity-publisher
+push-connectivity-publisher:
+	docker push $(CONNECTIVITY_PUBLISHER_IMAGE)
+
+.PHONY: push-connectivity-binder
+push-connectivity-binder:
+	docker push $(CONNECTIVITY_BINDER_IMAGE)
+
+.PHONY: push-connectivity-registry
+push-connectivity-registry:
+	docker push $(CONNECTIVITY_REGISTRY_IMAGE)
+
+.PHONY: push-connectivity-dns
+push-connectivity-dns:
+	docker push $(CONNECTIVITY_DNS_IMAGE)
+
 .PHONY: generate
 generate: tools-vendor $(CONTROLLER_GEN)
 	$(CONTROLLER_GEN) \

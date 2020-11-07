@@ -29,9 +29,10 @@ even when:
 ## Getting Started
 
 These instructions will setup the project on a [Kind](https://kind.sigs.k8s.io/)
-cluster on your local machine for development and testing purposes. Installing
-Cross-cluster Connectivity on other Kubernetes clusters is also possible, but
-not currently covered in these docs.
+cluster on your local machine for development and testing purposes.
+
+For instructions on installing Cross-cluster Connectivity on other Kubernetes
+clusters, see [INSTALLATION.md](./INSTALLATION.md).
 
 ### Prerequisites
 

@@ -31,8 +31,6 @@ spec:
       containers:
       - name: connectivity-registry
         image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/connectivity-registry:dev
-        # remove this when testing on a remote cluster
-        imagePullPolicy: Never
         args:
         - --tls-cert=/certs/tls.crt
         - --tls-key=/certs/tls.key

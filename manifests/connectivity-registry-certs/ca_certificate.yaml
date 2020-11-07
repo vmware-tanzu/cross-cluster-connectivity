@@ -1,0 +1,21 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-ca-issuer
+  namespace: cross-cluster-connectivity
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: registry-ca
+  namespace: cross-cluster-connectivity
+spec:
+  commonName: registry-ca.local
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: registry-ca-issuer
+  secretName: registry-ca
