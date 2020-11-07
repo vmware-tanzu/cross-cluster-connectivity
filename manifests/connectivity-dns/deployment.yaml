@@ -31,8 +31,6 @@ spec:
       containers:
       - name: connectivity-dns
         image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/connectivity-dns:dev
-        # remove this when testing on a remote cluster
-        imagePullPolicy: Never
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume

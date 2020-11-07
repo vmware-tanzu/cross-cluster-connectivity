@@ -31,9 +31,6 @@ spec:
       containers:
       - name: connectivity-binder
         image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/connectivity-binder:dev
-        # remove this when testing on a remote cluster
-        imagePullPolicy: Never
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding

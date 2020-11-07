@@ -16,10 +16,13 @@ metadata:
   namespace: cross-cluster-connectivity
 subsets:
   - addresses:
-    # Node IP Address of the remote registry
-    - ip: SHARED_SERVICE_NODE_IP
+    # Remote registry IP address. Usually the Node IP(s) of the clusters you
+    # are connecting to. By default, the connectivity-registry is exposed as a
+    # NodePort service.
+    - ip: REMOTE_REGISTRY_IP
     ports:
-    # Node Port of the remote registry
+    # By default, the connectivity-registry exposes a NodePort service on port
+    # 30001.
     - port: 30001
 ---
 apiVersion: connectivity.tanzu.vmware.com/v1alpha1
@@ -29,10 +32,10 @@ metadata:
   namespace: cross-cluster-connectivity
 spec:
   # In-cluster dns name of the service created up above
-  address: "shared-services-registry.cross-cluster-connectivity.svc:443"
+  address: "shared-services-registry.cross-cluster-connectivity.svc.cluster.local:443"
   tlsConfig:
     # Base64 encoded CA certificate of the remote registry
     serverCA: REGISTRY_CA_CERTIFICATE
     # Server name of the remote registry i.e the common name within the
     # certificate of the remote registry
-    serverName: "shared-services-registry.xcc.test"
+    serverName: "REGISTRY_DOMAIN"
