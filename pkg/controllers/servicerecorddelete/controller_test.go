@@ -112,7 +112,7 @@ var _ = Describe("ServiceRecordOrphanDeleteController", func() {
 		}
 	})
 
-	When("the service record does not have a parent", func() {
+	When("the service record does not have a parent and has an export label", func() {
 		BeforeEach(func() {
 			_, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
 				Create(serviceRecord)
@@ -131,6 +131,31 @@ var _ = Describe("ServiceRecordOrphanDeleteController", func() {
 					List(metav1.ListOptions{})
 				return serviceRecordList.Items, err
 			}).Should(HaveLen(0))
+		})
+	})
+
+	When("the service record does not have an export label", func() {
+		BeforeEach(func() {
+			serviceRecord.Labels = map[string]string{
+				connectivityv1alpha1.ImportedLabel: "",
+			}
+			_, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+				Create(serviceRecord)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() ([]connectivityv1alpha1.ServiceRecord, error) {
+				serviceRecordList, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+					List(metav1.ListOptions{})
+				return serviceRecordList.Items, err
+			}, time.Second, 100*time.Millisecond).Should(HaveLen(1))
+		})
+
+		It("does not delete the service record", func() {
+			Consistently(func() ([]connectivityv1alpha1.ServiceRecord, error) {
+				serviceRecordList, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+					List(metav1.ListOptions{})
+				return serviceRecordList.Items, err
+			}, time.Second, 100*time.Millisecond).Should(HaveLen(1))
 		})
 	})
 
