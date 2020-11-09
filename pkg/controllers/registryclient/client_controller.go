@@ -170,9 +170,9 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 }
 
 func (r *registryClient) deleteHamletService(f *hamletv1alpha1.FederatedService) error {
-	fs := r.convertToKubernetesServiceRecord(f)
+	serviceRecord := r.convertToKubernetesServiceRecord(f)
 
-	currentFS, err := r.serviceRecordLister.ServiceRecords(fs.Namespace).Get(fs.Name)
+	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(serviceRecord.Namespace).Get(serviceRecord.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// already deleted
@@ -182,7 +182,7 @@ func (r *registryClient) deleteHamletService(f *hamletv1alpha1.FederatedService)
 		return fmt.Errorf("error getting current FederatedService: %v", err)
 	}
 
-	err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentFS.Namespace).Delete(currentFS.Name, &metav1.DeleteOptions{})
+	err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
 	return err
 }
 
