@@ -138,13 +138,13 @@ func (r *registryClient) newHamletClient() (client.Client, error) {
 }
 
 func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) error {
-	desiredFS := r.convertToKubernetesServiceRecord(f)
+	desiredServiceRecord := r.convertToKubernetesServiceRecord(f)
 
-	currentFS, err := r.serviceRecordLister.ServiceRecords(desiredFS.Namespace).Get(desiredFS.Name)
+	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(desiredServiceRecord.Namespace).Get(desiredServiceRecord.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(desiredFS.Namespace).
-				Create(desiredFS)
+			_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
+				Create(desiredServiceRecord)
 			return err
 		}
 
@@ -152,16 +152,16 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 	}
 
 	// exists, update if current state does not match desired state
-	newFS := currentFS.DeepCopy()
-	newFS.Labels = desiredFS.Labels
-	newFS.Annotations = desiredFS.Annotations
-	newFS.Spec = desiredFS.Spec
+	newServiceRecord := currentServiceRecord.DeepCopy()
+	newServiceRecord.Labels = desiredServiceRecord.Labels
+	newServiceRecord.Annotations = desiredServiceRecord.Annotations
+	newServiceRecord.Spec = desiredServiceRecord.Spec
 
-	if apiequality.Semantic.DeepEqual(currentFS, newFS) {
+	if apiequality.Semantic.DeepEqual(currentServiceRecord, newServiceRecord) {
 		return nil
 	}
 
-	_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(newFS.Namespace).Update(newFS)
+	_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(newServiceRecord.Namespace).Update(newServiceRecord)
 	if err != nil {
 		return fmt.Errorf("error updating FederatedService: %v", err)
 	}
