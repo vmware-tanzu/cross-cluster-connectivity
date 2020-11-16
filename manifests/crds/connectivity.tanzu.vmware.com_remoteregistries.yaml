@@ -38,6 +38,10 @@ spec:
           properties:
             address:
               type: string
+            allowedDomains:
+              items:
+                type: string
+              type: array
             tlsConfig:
               description: RegistryTLSConfig...
               properties:
@@ -52,6 +56,7 @@ spec:
               type: object
           required:
           - address
+          - allowedDomains
           - tlsConfig
           type: object
       required:
