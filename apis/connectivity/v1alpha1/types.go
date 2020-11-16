@@ -81,6 +81,8 @@ type RemoteRegistry struct {
 type RemoteRegistrySpec struct {
 	Address   string            `json:"address"`
 	TLSConfig RegistryTLSConfig `json:"tlsConfig"`
+
+	AllowedDomains []string `json:"allowedDomains"`
 }
 
 // RegistryTLSConfig...
