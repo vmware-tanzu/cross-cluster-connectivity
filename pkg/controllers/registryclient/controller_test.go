@@ -102,7 +102,10 @@ var _ = Describe("ClientController", func() {
 			},
 		}
 
-		_, err = connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+	})
+
+	JustBeforeEach(func() {
+		_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
 			Create(remoteRegistry)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -113,14 +116,7 @@ var _ = Describe("ClientController", func() {
 
 	When("the remote registry server has a service record", func() {
 		BeforeEach(func() {
-			federatedService := &hamletv1alpha1.FederatedService{
-				Name:      "some-service.some.domain",
-				Fqdn:      "some-service.some.domain",
-				Id:        "some-service.some.domain",
-				Protocols: []string{"https"},
-				Endpoints: []*hamletv1alpha1.FederatedService_Endpoint{},
-			}
-			stateProvider.GetStateReturns([]proto.Message{federatedService}, nil)
+			stateProvider.GetStateReturns([]proto.Message{dummyFederatedService(("some-service.some.domain"))}, nil)
 		})
 
 		It("creates a service record in the Kubernetes API", func() {
@@ -128,10 +124,8 @@ var _ = Describe("ClientController", func() {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
 					List(metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
-				MatchServiceRecord(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Name": Equal("some-service.some.domain-06df7236"),
-					}),
+				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
+					"Name": Equal("some-service.some.domain-06df7236"),
 				})),
 			)
 		})
@@ -141,10 +135,8 @@ var _ = Describe("ClientController", func() {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
 					List(metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
-				MatchServiceRecord(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Labels": HaveKeyWithValue(connectivityv1alpha1.ConnectivityRemoteRegistryLabel, "some-remote-registry"),
-					}),
+				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
+					"Labels": HaveKeyWithValue(connectivityv1alpha1.ConnectivityRemoteRegistryLabel, "some-remote-registry"),
 				})),
 			)
 		})
@@ -155,14 +147,7 @@ var _ = Describe("ClientController", func() {
 		BeforeEach(func() {
 			fqdnLabel := strings.Repeat("a", 63)
 			fqdn = fmt.Sprintf("%s.some.domain", fqdnLabel)
-			federatedService := &hamletv1alpha1.FederatedService{
-				Name:      fqdn,
-				Fqdn:      fqdn,
-				Id:        fqdn,
-				Protocols: []string{"https"},
-				Endpoints: []*hamletv1alpha1.FederatedService_Endpoint{},
-			}
-			stateProvider.GetStateReturns([]proto.Message{federatedService}, nil)
+			stateProvider.GetStateReturns([]proto.Message{dummyFederatedService(fqdn)}, nil)
 		})
 
 		It("creates a service record in the Kubernetes API", func() {
@@ -170,10 +155,8 @@ var _ = Describe("ClientController", func() {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
 					List(metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
-				MatchServiceRecord(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Name": Equal(fmt.Sprintf("%s-06df7236", fqdn)),
-					}),
+				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
+					"Name": Equal(fmt.Sprintf("%s-06df7236", fqdn)),
 				})),
 			)
 		})
@@ -230,17 +213,13 @@ var _ = Describe("ClientController", func() {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
 					List(metav1.ListOptions{})
 			}, 10*time.Second, time.Second).Should(
-				MatchServiceRecords(
-					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Name": Equal("some-service.some.domain-06df7236"),
-							"UID":  Equal(apimachinerytypes.UID("1234")), // the uid proves this is the original ServiceRecord
-						}),
+				ConsistOfServiceRecords(
+					MatchKubeObjectWithFields(gstruct.Fields{
+						"Name": Equal("some-service.some.domain-06df7236"),
+						"UID":  Equal(apimachinerytypes.UID("1234")), // the uid proves this is the original ServiceRecord
 					}),
-					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Name": Equal("another-service.some.domain-06df7236"),
-						}),
+					MatchKubeObjectWithFields(gstruct.Fields{
+						"Name": Equal("another-service.some.domain-06df7236"),
 					}),
 				),
 			)
@@ -259,12 +238,14 @@ func randomPort() int {
 	return addr.Port
 }
 
-func MatchServiceRecords(matchers ...types.GomegaMatcher) types.GomegaMatcher {
-	return WithTransform(transformServiceRecordListToItems, ConsistOf(matchers))
+func ConsistOfServiceRecords(serviceRecords ...interface{}) types.GomegaMatcher {
+	return WithTransform(transformServiceRecordListToItems, ConsistOf(serviceRecords...))
 }
 
-func MatchServiceRecord(matcher types.GomegaMatcher) types.GomegaMatcher {
-	return WithTransform(transformServiceRecordListToItems, And(HaveLen(1), ContainElement(matcher)))
+func MatchKubeObjectWithFields(objectMetaFields gstruct.Fields) types.GomegaMatcher {
+	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, objectMetaFields),
+	})
 }
 
 func transformServiceRecordListToItems(srl *connectivityv1alpha1.ServiceRecordList) []connectivityv1alpha1.ServiceRecord {
@@ -272,4 +253,14 @@ func transformServiceRecordListToItems(srl *connectivityv1alpha1.ServiceRecordLi
 		return nil
 	}
 	return srl.Items
+}
+
+func dummyFederatedService(fqdn string) *hamletv1alpha1.FederatedService {
+	return &hamletv1alpha1.FederatedService{
+		Name:      fqdn,
+		Fqdn:      fqdn,
+		Id:        fqdn,
+		Protocols: []string{"https"},
+		Endpoints: []*hamletv1alpha1.FederatedService_Endpoint{},
+	}
 }
