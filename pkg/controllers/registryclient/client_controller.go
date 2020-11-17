@@ -162,13 +162,14 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 		Namespace: desiredServiceRecord.Namespace,
 	})
 
-	if !r.isDomainAllowed(desiredServiceRecord) {
-		return nil
-	}
-
 	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(desiredServiceRecord.Namespace).Get(desiredServiceRecord.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			if !r.isDomainAllowed(desiredServiceRecord) {
+				// do not create a non-allowed domain
+				log.Infof("creation of %s/%s skipped due to non-allowed domain", desiredServiceRecord.Namespace, desiredServiceRecord.Name)
+				return nil
+			}
 			log.Infof("creating: %s/%s", desiredServiceRecord.Namespace, desiredServiceRecord.Name)
 
 			_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
@@ -177,6 +178,18 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 		}
 
 		return fmt.Errorf("error getting current ServiceRecord: %v", err)
+	}
+
+	if !r.isDomainAllowed(desiredServiceRecord) {
+		// exists, but shouldn't because the domain is no longer allowed
+		log.Infof("deleting %s/%s due to non-allowed domain", currentServiceRecord.Namespace, currentServiceRecord.Name)
+
+		err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).
+			Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("error deleting ServiceRecord: %v", err)
+		}
+		return nil
 	}
 
 	// exists, update if current state does not match desired state

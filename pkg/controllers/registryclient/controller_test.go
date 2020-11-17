@@ -195,6 +195,34 @@ var _ = Describe("ClientController", func() {
 					),
 				)
 			})
+
+			When("the domain filter is added to the RemoteRegistry", func() {
+				JustBeforeEach(func() {
+					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
+					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+							List(metav1.ListOptions{})
+					}, 5*time.Second, time.Second).Should(WithTransform(transformServiceRecordListToItems, HaveLen(7)))
+
+					By("Updating the RemoteRegistry to add the domain filter")
+					remoteRegistry.Spec.AllowedDomains = []string{"some.domain"}
+					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+						Update(remoteRegistry)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("service records with non-matching domains should be deleted, and only service records for services with matching domains should remain", func() {
+					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+							List(metav1.ListOptions{})
+					}, 5*time.Second, time.Second).Should(
+						ConsistOfServiceRecords(
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.some.domain-06df7236")}),
+						),
+					)
+				})
+			})
 		})
 
 		When("the RemoteRegistry has domain filters", func() {
