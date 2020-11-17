@@ -9,10 +9,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -51,8 +53,8 @@ var _ = Describe("Exported Service", func() {
 			"delete", "namespace", "nginx-test")
 	})
 
-	DescribeTable("journeys", func(clientClusterKubeConfig, servicesClusterKubeConfig string) {
-		deployNginx(servicesClusterKubeConfig, certsDir)
+	DescribeTable("journeys", func(clientClusterKubeConfig, servicesClusterKubeConfig, servicesClusterID string) {
+		deployNginx(servicesClusterKubeConfig, certsDir, servicesClusterID)
 
 		By("validating it doesn't discover the published service on the client cluster")
 		Consistently(func() (string, error) {
@@ -74,7 +76,7 @@ var _ = Describe("Exported Service", func() {
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).Should(And(
 			ContainSubstring("HTTP/2 200"),
-			ContainSubstring("Thank you for using nginx."),
+			ContainSubstring(fmt.Sprintf("x-cluster: %s", servicesClusterID)),
 		))
 
 		By("remove intent to export the published service to the client cluster")
@@ -113,12 +115,12 @@ var _ = Describe("Exported Service", func() {
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx-xcc-test"))
 	},
-		Entry("tests connectivity from cluster one to cluster two", clusterOneKubeConfig, clusterTwoKubeConfig),
-		Entry("tests connectivity form cluster two to cluster one", clusterTwoKubeConfig, clusterOneKubeConfig),
+		Entry("tests connectivity from cluster one to cluster two", clusterOneKubeConfig, clusterTwoKubeConfig, "cluster-two"),
+		Entry("tests connectivity form cluster two to cluster one", clusterTwoKubeConfig, clusterOneKubeConfig, "cluster-one"),
 	)
 })
 
-func deployNginx(kubeconfig, certsDir string) {
+func deployNginx(kubeconfig, certsDir, clusterHeaderValue string) {
 	_, err := kubectlWithConfig(kubeconfig,
 		"create", "namespace", "nginx-test")
 	Expect(err).NotTo(HaveOccurred())
@@ -130,8 +132,33 @@ func deployNginx(kubeconfig, certsDir string) {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
+	nginxConfTemplate, err := ioutil.ReadFile(filepath.Join("fixtures", "nginx-conf.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
+	nginxConf := strings.Replace(string(nginxConfTemplate), "REPLACE_CLUSTER_HEADER_VALUE", clusterHeaderValue, 1)
+
+	nginxConfFile, err := ioutil.TempFile("", "nginx-conf")
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = nginxConfFile.Write([]byte(nginxConf))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(nginxConfFile.Close()).NotTo(HaveOccurred())
+
+	_, err = kubectlWithConfig(kubeconfig,
+		"apply", "-f", nginxConfFile.Name())
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(os.RemoveAll(nginxConfFile.Name())).NotTo(HaveOccurred())
+
 	_, err = kubectlWithConfig(kubeconfig,
 		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "nginx.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
+	nginxDeploymentPatch, err := ioutil.ReadFile(filepath.Join("fixtures", "nginx-deployment-patch.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = kubectlWithConfig(kubeconfig,
+		"-n", "nginx-test", "patch", "deployment", "nginx", "--patch", string(nginxDeploymentPatch))
 	Expect(err).NotTo(HaveOccurred())
 }
 
