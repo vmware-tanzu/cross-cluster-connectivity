@@ -1,8 +1,10 @@
+#@ load("@ytt:data", "data")
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: shared-services-registry
+  name: #@ data.values.name+"-registry"
   namespace: cross-cluster-connectivity
 spec:
   ports:
@@ -12,21 +14,23 @@ spec:
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: shared-services-registry
+  name: #@ data.values.name+"-registry"
   namespace: cross-cluster-connectivity
 subsets:
-  - addresses:
-    - ip: SHARED_SERVICE_NODE_IP
-    ports:
-    - port: 30001
+#@ for j in range(len(data.values.endpoint_ips)):
+- addresses:
+  - ip: #@ data.values.endpoint_ips[j]
+  ports:
+  - port: 30001
+#@ end
 ---
 apiVersion: connectivity.tanzu.vmware.com/v1alpha1
 kind: RemoteRegistry
 metadata:
-  name: shared-services-registry
+  name: #@ data.values.name+"-registry"
   namespace: cross-cluster-connectivity
 spec:
-  address: "shared-services-registry.cross-cluster-connectivity.svc:443"
+  address: #@ data.values.name+"-registry.cross-cluster-connectivity.svc:443"
   tlsConfig:
-    serverCA: SERVER_CA
-    serverName: "shared-services-registry.xcc.test"
+    serverCA: #@ data.values.base64_ca_cert
+    serverName: #@ data.values.name+"-registry.xcc.test"

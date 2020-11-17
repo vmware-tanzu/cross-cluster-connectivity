@@ -37,6 +37,7 @@ metadata:
 spec:
   dnsNames:
   - 'shared-services-registry.xcc.test'
+  - 'workloads-registry.xcc.test'
   issuerRef:
     kind: Issuer
     name: registry-certs-issuer
