@@ -96,6 +96,7 @@ var _ = Describe("ClientController", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "some-remote-registry",
 				Namespace: "cross-cluster-connectivity",
+				UID:       "remote-registry-uid",
 			},
 			Spec: connectivityv1alpha1.RemoteRegistrySpec{
 				Address: fmt.Sprintf("127.0.0.1:%d", hamletPort),
@@ -139,6 +140,22 @@ var _ = Describe("ClientController", func() {
 			}, 5*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
 					"Labels": HaveKeyWithValue(connectivityv1alpha1.ConnectivityRemoteRegistryLabel, "some-remote-registry"),
+				})),
+			)
+		})
+
+		It("adds an OwnerReference to the RemoteRegistry on the created ServiceRecord", func() {
+			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+					List(metav1.ListOptions{})
+			}, 5*time.Second, time.Second).Should(
+				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
+					"OwnerReferences": ConsistOf(metav1.OwnerReference{
+						APIVersion: "connectivity.tanzu.vmware.com/v1alpha1",
+						Kind:       "RemoteRegistry",
+						UID:        "remote-registry-uid",
+						Name:       "some-remote-registry",
+					}),
 				})),
 			)
 		})
