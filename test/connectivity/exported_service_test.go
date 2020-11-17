@@ -57,7 +57,7 @@ var _ = Describe("Exported Service", func() {
 		deployNginx(servicesClusterKubeConfig, certsDir, servicesClusterID)
 
 		By("validating it doesn't discover the published service on the client cluster")
-		Consistently(func() (string, error) {
+		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"get", "svc", "-n", connectivityNamespace)
 			return string(output), err
