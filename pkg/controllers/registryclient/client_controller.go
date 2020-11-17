@@ -255,6 +255,14 @@ func (r *registryClient) convertToKubernetesServiceRecord(fs *hamletv1alpha1.Fed
 				connectivityv1alpha1.ConnectivityRemoteRegistryLabel: r.remoteRegistry.Name,
 			},
 			Annotations: fs.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: connectivityv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "RemoteRegistry",
+					UID:        r.remoteRegistry.GetUID(),
+					Name:       r.remoteRegistry.GetName(),
+				},
+			},
 		},
 		Spec: connectivityv1alpha1.ServiceRecordSpec{
 			FQDN:      fs.Fqdn,
