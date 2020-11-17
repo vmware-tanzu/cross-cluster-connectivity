@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	kubectlTimeout     = 1 * time.Minute
-	kubectlInterval    = 5 * time.Second
+	kubectlTimeout              = 1 * time.Minute
+	kubectlInterval             = 5 * time.Second
 	curlConnectTimeoutInSeconds = "5"
 )
 
@@ -41,17 +41,17 @@ func kubectlWithConfig(kubeConfigPath string, args ...string) ([]byte, error) {
 	return output, err
 }
 
-var workloadClusterKubeConfig = os.Getenv("WORKLOAD_CLUSTER_KUBECONFIG")
-var sharedServiceClusterKubeConfig = os.Getenv("SHARED_SERVICE_CLUSTER_KUBECONFIG")
+var clusterOneKubeConfig = os.Getenv("CLUSTER_ONE_KUBECONFIG")
+var clusterTwoKubeConfig = os.Getenv("CLUSTER_TWO_KUBECONFIG")
 
 var _ = BeforeSuite(func() {
-	workloadClusterKubeConfig := os.Getenv("WORKLOAD_CLUSTER_KUBECONFIG")
-	sharedServiceClusterKubeConfig := os.Getenv("SHARED_SERVICE_CLUSTER_KUBECONFIG")
+	clusterOneKubeConfig := os.Getenv("CLUSTER_ONE_KUBECONFIG")
+	clusterTwoKubeConfig := os.Getenv("CLUSTER_TWO_KUBECONFIG")
 
-	if len(workloadClusterKubeConfig) == 0 {
-		Fail("WORKLOAD_CLUSTER_KUBECONFIG not set")
+	if len(clusterOneKubeConfig) == 0 {
+		Fail("CLUSTER_ONE_KUBECONFIG not set")
 	}
-	if len(sharedServiceClusterKubeConfig) == 0 {
-		Fail("SHARED_SERVICE_CLUSTER_KUBECONFIG not set")
+	if len(clusterTwoKubeConfig) == 0 {
+		Fail("CLUSTER_TWO_KUBECONFIG not set")
 	}
 })
