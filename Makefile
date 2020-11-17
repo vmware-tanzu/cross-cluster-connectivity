@@ -36,9 +36,9 @@ test-unit:
 
 .PHONY: test-connectivity
 test-connectivity:
-	SHARED_SERVICE_CLUSTER_KUBECONFIG=$(SHARED_SERVICE_CLUSTER_KUBECONFIG) \
-	WORKLOAD_CLUSTER_KUBECONFIG=$(WORKLOAD_CLUSTER_KUBECONFIG) \
-	ginkgo -v $(PWD)/test/connectivity
+	CLUSTER_ONE_KUBECONFIG=$(WORKLOAD_CLUSTER_KUBECONFIG) \
+	CLUSTER_TWO_KUBECONFIG=$(SHARED_SERVICE_CLUSTER_KUBECONFIG) \
+	ginkgo -v -p $(PWD)/test/connectivity
 
 .PHONY: build-images
 build-images: build-connectivity-publisher build-connectivity-binder build-connectivity-registry build-connectivity-dns
