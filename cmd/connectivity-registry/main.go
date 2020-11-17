@@ -65,6 +65,7 @@ func main() {
 		remoteRegistryInformer,
 		serviceRecordInformer,
 		namespace,
+		5*time.Minute, //or what?
 	)
 
 	stopCh := make(chan struct{})

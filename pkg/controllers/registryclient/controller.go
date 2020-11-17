@@ -35,6 +35,8 @@ type RegistryClientController struct {
 	workqueue workqueue.RateLimitingInterface
 
 	namespace string
+
+	deleteOrphanDelay time.Duration
 }
 
 func NewRegistryClientController(
@@ -42,6 +44,7 @@ func NewRegistryClientController(
 	remoteRegistryInformer connectivityinformers.RemoteRegistryInformer,
 	serviceRecordInformer connectivityinformers.ServiceRecordInformer,
 	namespace string,
+	deleteOrphanDelay time.Duration,
 ) *RegistryClientController {
 	controller := &RegistryClientController{
 		clients:             map[string]*registryClient{},
@@ -50,6 +53,7 @@ func NewRegistryClientController(
 		serviceRecordLister: serviceRecordInformer.Lister(),
 		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RemoteRegistries"),
 		namespace:           namespace,
+		deleteOrphanDelay:   deleteOrphanDelay,
 	}
 
 	remoteRegistryInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -153,6 +157,7 @@ func (r *RegistryClientController) syncHandler(key string) error {
 			r.connClientSet,
 			r.serviceRecordLister,
 			r.namespace,
+			r.deleteOrphanDelay,
 		)
 
 		log.WithField("remoteregistry", fmt.Sprintf("%s/%s",
