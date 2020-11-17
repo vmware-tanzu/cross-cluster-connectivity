@@ -34,8 +34,8 @@ func main() {
 	flag.IntVar(
 		&orphanImportedServiceRecordDeleteDelaySeconds,
 		"orphan-imported-service-record-delete-delay-seconds",
-		5 * 60,
-		"delay in seconds before an orphan imported service record is deleted"
+		5*60,
+		"delay in seconds before an orphan imported service record is deleted. if an exported service record has not been received by the end of this delay, the corresponding imported service record will be deleted.",
 	)
 	flag.Parse()
 
@@ -72,7 +72,7 @@ func main() {
 		remoteRegistryInformer,
 		serviceRecordInformer,
 		namespace,
-		orphanImportedServiceRecordDeleteDelaySeconds*time.Second,
+		time.Duration(orphanImportedServiceRecordDeleteDelaySeconds)*time.Second,
 	)
 
 	stopCh := make(chan struct{})
