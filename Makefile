@@ -32,7 +32,7 @@ test-full: test-unit build-images e2e-down e2e-up test-connectivity
 
 .PHONY: test-unit
 test-unit:
-	ginkgo -v -r $(PWD)/pkg $(PWD)/cmd/connectivity-registry
+	ginkgo -v -race -r $(PWD)/pkg $(PWD)/cmd/connectivity-registry
 
 .PHONY: test-connectivity
 test-connectivity:

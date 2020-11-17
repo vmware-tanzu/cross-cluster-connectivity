@@ -19,8 +19,10 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/registryclient/internal/orphandeleter"
 	connectivityclientset "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/clientset/versioned"
 	connectivitylisters "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/listers/connectivity/v1alpha1"
 )
@@ -32,6 +34,7 @@ type registryClient struct {
 	connClientSet  connectivityclientset.Interface
 
 	serviceRecordLister connectivitylisters.ServiceRecordLister
+	orphanDeleter       *orphandeleter.OrphanDeleter
 
 	// sending to this channel forces a redial of the client
 	// for when the RemoteRegistry resource changes.
@@ -47,6 +50,7 @@ func newRegistryClient(
 	connClientSet connectivityclientset.Interface,
 	serviceRecordLister connectivitylisters.ServiceRecordLister,
 	namespace string,
+	deleteOrphanDelay time.Duration,
 ) *registryClient {
 	return &registryClient{
 		remoteRegistry:      remoteRegistry,
@@ -55,6 +59,7 @@ func newRegistryClient(
 		reDial:              make(chan struct{}),
 		stopCh:              make(chan struct{}),
 		namespace:           namespace,
+		orphanDeleter:       orphandeleter.NewOrphanDeleter(serviceRecordLister, connClientSet, namespace, deleteOrphanDelay),
 	}
 }
 
@@ -89,11 +94,14 @@ func (r *registryClient) run() {
 				logger.Infof("redial received for RemoteRegistry %s/%s",
 					r.remoteRegistry.Namespace, r.remoteRegistry.Name)
 				cancel()
+				r.orphanDeleter.Reset()
 			case <-streamEndedNotify:
 				logger.Info("stream ended")
+				r.orphanDeleter.Reset()
 			case <-r.stopCh:
 				logger.Infof("stop signal received")
 				cancel()
+				r.orphanDeleter.Reset()
 				return
 			}
 
@@ -140,15 +148,24 @@ func (r *registryClient) newHamletClient() (client.Client, error) {
 func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) error {
 	desiredServiceRecord := r.convertToKubernetesServiceRecord(f)
 
+	log.Infof("sync hamlet service: %s/%s", desiredServiceRecord.Namespace, desiredServiceRecord.Name)
+
+	r.orphanDeleter.AddRemoteServiceRecord(types.NamespacedName{
+		Name:      desiredServiceRecord.Name,
+		Namespace: desiredServiceRecord.Namespace,
+	})
+
 	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(desiredServiceRecord.Namespace).Get(desiredServiceRecord.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			log.Infof("creating: %s/%s", desiredServiceRecord.Namespace, desiredServiceRecord.Name)
+
 			_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
 				Create(desiredServiceRecord)
 			return err
 		}
 
-		return fmt.Errorf("error getting current FederatedService: %v", err)
+		return fmt.Errorf("error getting current ServiceRecord: %v", err)
 	}
 
 	// exists, update if current state does not match desired state
@@ -163,15 +180,17 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 
 	_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(newServiceRecord.Namespace).Update(newServiceRecord)
 	if err != nil {
-		return fmt.Errorf("error updating FederatedService: %v", err)
+		return fmt.Errorf("error updating ServiceRecord: %v", err)
 	}
 
 	return nil
 }
 
 func (r *registryClient) deleteHamletService(f *hamletv1alpha1.FederatedService) error {
-	serviceRecord := r.convertToKubernetesServiceRecord(f)
+	return r.deleteServiceRecord(r.convertToKubernetesServiceRecord(f))
+}
 
+func (r *registryClient) deleteServiceRecord(serviceRecord *connectivityv1alpha1.ServiceRecord) error {
 	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(serviceRecord.Namespace).Get(serviceRecord.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -179,11 +198,10 @@ func (r *registryClient) deleteHamletService(f *hamletv1alpha1.FederatedService)
 			return nil
 		}
 
-		return fmt.Errorf("error getting current FederatedService: %v", err)
+		return fmt.Errorf("error getting current ServiceRecord: %v", err)
 	}
 
-	err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
-	return err
+	return r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
 }
 
 // OnCreate handler from Hamlet server
