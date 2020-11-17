@@ -22,14 +22,21 @@ import (
 
 func main() {
 	var (
-		tlsCertPath string
-		tlsKeyPath  string
-		port        int
+		tlsCertPath                                   string
+		tlsKeyPath                                    string
+		port                                          int
+		orphanImportedServiceRecordDeleteDelaySeconds int
 	)
 
 	flag.StringVar(&tlsCertPath, "tls-cert", "", "the path to the server TLS certificate")
 	flag.StringVar(&tlsKeyPath, "tls-key", "", "the path to the server TLS key")
 	flag.IntVar(&port, "port", 8000, "the serving port for the hamlet server")
+	flag.IntVar(
+		&orphanImportedServiceRecordDeleteDelaySeconds,
+		"orphan-imported-service-record-delete-delay-seconds",
+		5 * 60,
+		"delay in seconds before an orphan imported service record is deleted"
+	)
 	flag.Parse()
 
 	restConfig, err := rest.InClusterConfig()
@@ -65,7 +72,7 @@ func main() {
 		remoteRegistryInformer,
 		serviceRecordInformer,
 		namespace,
-		5*time.Minute, //or what?
+		orphanImportedServiceRecordDeleteDelaySeconds*time.Second,
 	)
 
 	stopCh := make(chan struct{})
