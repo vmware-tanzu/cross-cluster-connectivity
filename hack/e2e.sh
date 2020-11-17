@@ -331,37 +331,43 @@ function load_workload_cluster_images() {
 }
 
 function apply_remote_registry() {
+  local service_cluster="${1}"
+  local workload_cluster="${2}"
+  local cluster_name="${3}"
+
   local shared_service_node_ip="$(kubectl get node \
-    --kubeconfig ${SHARED_SERVICE_CLUSTER_KUBECONFIG} \
-    ${SHARED_SERVICE_CLUSTER}-${SHARED_SERVICE_CLUSTER}-worker-0 \
+    --kubeconfig ${service_cluster} \
+    ${cluster_name}-${cluster_name}-worker-0 \
     -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'
   )"
 
   local base64_ca_cert=""
+  set +e
   while [[ -z ${base64_ca_cert} ]]; do
-    base64_ca_cert="$(kubectl --kubeconfig "${SHARED_SERVICE_CLUSTER_KUBECONFIG}" \
+    base64_ca_cert="$(kubectl --kubeconfig "${service_cluster}" \
       -n cross-cluster-connectivity get secret connectivity-registry-certs \
       -o json | jq -r '.data["ca.crt"]'
     )"
   done
+  set -e
 
   ytt -f hack/manifests/e2e/remoteregistry/remoteregistry.yaml \
-    -f hack/manifests/e2e/remoteregistry/add-remote-registry-endpoints.yaml \
-    -f hack/manifests/e2e/remoteregistry/add-registry-ca.yaml \
     -f hack/manifests/e2e/remoteregistry/values.yaml \
+    --data-value-yaml "name=${cluster_name}" \
     --data-value-yaml "endpoint_ips=[${shared_service_node_ip}]" \
     --data-value-yaml "base64_ca_cert=${base64_ca_cert}" | \
-    kubectl --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} apply -f -
+    kubectl --kubeconfig ${workload_cluster} apply -f -
 }
 
 function patch_kube_system_coredns() {
+  local kubeconfig=$1
   local connectivity_dns_service_ip="$(kubectl get service \
-    --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} \
+    --kubeconfig ${kubeconfig} \
 		-n cross-cluster-connectivity \
 		connectivity-dns -o=jsonpath='{.spec.clusterIP}')"
 
   kubectl \
-    --kubeconfig ${WORKLOAD_CLUSTER_KUBECONFIG} \
+    --kubeconfig ${kubeconfig} \
     -n kube-system patch configmap coredns \
     --type=strategic --patch="$(
       cat <<EOF
@@ -428,8 +434,10 @@ cluster artifacts:
   kubeconfig: ${ROOT_DIR}/${cluster}.kubeconfig
 EOF
 
-  apply_remote_registry
-  patch_kube_system_coredns
+  apply_remote_registry ${SHARED_SERVICE_CLUSTER_KUBECONFIG} ${WORKLOAD_CLUSTER_KUBECONFIG} ${SHARED_SERVICE_CLUSTER}
+  apply_remote_registry ${WORKLOAD_CLUSTER_KUBECONFIG} ${SHARED_SERVICE_CLUSTER_KUBECONFIG} ${WORKLOAD_CLUSTER}
+  patch_kube_system_coredns ${WORKLOAD_CLUSTER_KUBECONFIG}
+  patch_kube_system_coredns ${SHARED_SERVICE_CLUSTER_KUBECONFIG}
   done
 }
 
