@@ -116,7 +116,9 @@ var _ = Describe("ClientController", func() {
 
 	When("the remote registry server has a service record", func() {
 		BeforeEach(func() {
-			stateProvider.GetStateReturns([]proto.Message{dummyFederatedService(("some-service.some.domain"))}, nil)
+			stateProvider.GetStateReturns([]proto.Message{
+				dummyFederatedService(("some-service.some.domain")),
+			}, nil)
 		})
 
 		It("creates a service record in the Kubernetes API", func() {
@@ -139,6 +141,102 @@ var _ = Describe("ClientController", func() {
 					"Labels": HaveKeyWithValue(connectivityv1alpha1.ConnectivityRemoteRegistryLabel, "some-remote-registry"),
 				})),
 			)
+		})
+	})
+
+	When("the remote registry server has multiple service records", func() {
+		BeforeEach(func() {
+			stateProvider.GetStateReturns([]proto.Message{
+				dummyFederatedService(("some-service.some.domain")),
+				dummyFederatedService(("other.some.domain")),
+				dummyFederatedService(("other.somesome.domain")),
+				dummyFederatedService(("some.other.domain")),
+				dummyFederatedService(("domain.with.dot.at.end.")),
+				dummyFederatedService(("domain.WITH.mixed.case")),
+				dummyFederatedService(("yet.another.domain")),
+			}, nil)
+		})
+
+		When("the RemoteRegistry has no domain filter", func() {
+			BeforeEach(func() {
+				remoteRegistry.Spec.AllowedDomains = []string{}
+			})
+
+			It("creates service records for all imported services", func() {
+				Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+					return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+						List(metav1.ListOptions{})
+				}, 5*time.Second, time.Second).Should(
+					ConsistOfServiceRecords(
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.some.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.somesome.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some.other.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.dot.at.end-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.mixed.case-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("yet.another.domain-06df7236")}),
+					),
+				)
+			})
+		})
+
+		When("the RemoteRegistry has domain filters", func() {
+			BeforeEach(func() {
+				remoteRegistry.Spec.AllowedDomains = []string{
+					"some.domain",
+					"some.other.domain",
+					"domain.with.dot.at.end.",
+					"domain.with.MIXED.case",
+				}
+			})
+
+			It("only creates service records for services with matching domains", func() {
+				Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+					return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+						List(metav1.ListOptions{})
+				}, 5*time.Second, time.Second).Should(
+					ConsistOfServiceRecords(
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.some.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some.other.domain-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.dot.at.end-06df7236")}),
+						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.mixed.case-06df7236")}),
+					),
+				)
+			})
+
+			When("the domain filter is removed from the RemoteRegistry", func() {
+				JustBeforeEach(func() {
+					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
+					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+							List(metav1.ListOptions{})
+					}, 5*time.Second, time.Second).Should(WithTransform(transformServiceRecordListToItems, HaveLen(5)))
+
+					By("Updating the RemoteRegistry to remove the domain filter")
+					remoteRegistry.Spec.AllowedDomains = []string{}
+					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+						Update(remoteRegistry)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("creates service records for all imported services", func() {
+					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+							List(metav1.ListOptions{})
+					}, 5*time.Second, time.Second).Should(
+						ConsistOfServiceRecords(
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.some.domain-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("other.somesome.domain-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some.other.domain-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.dot.at.end-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("domain.with.mixed.case-06df7236")}),
+							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("yet.another.domain-06df7236")}),
+						),
+					)
+				})
+			})
 		})
 	})
 
