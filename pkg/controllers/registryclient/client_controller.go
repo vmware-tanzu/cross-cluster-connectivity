@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"strings"
 	"time"
 
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	hamletv1alpha1 "github.com/vmware/hamlet/api/types/v1alpha1"
 	"github.com/vmware/hamlet/pkg/client"
@@ -42,7 +44,8 @@ type registryClient struct {
 	// send to this channel when RemoteRegistry resource is deleted
 	stopCh chan struct{}
 
-	namespace string
+	namespace      string
+	allowedDomains []string
 }
 
 func newRegistryClient(
@@ -52,6 +55,7 @@ func newRegistryClient(
 	namespace string,
 	deleteOrphanDelay time.Duration,
 ) *registryClient {
+	allowedDomains := remoteRegistry.Spec.AllowedDomains
 	return &registryClient{
 		remoteRegistry:      remoteRegistry,
 		connClientSet:       connClientSet,
@@ -60,6 +64,7 @@ func newRegistryClient(
 		stopCh:              make(chan struct{}),
 		namespace:           namespace,
 		orphanDeleter:       orphandeleter.NewOrphanDeleter(serviceRecordLister, connClientSet, namespace, deleteOrphanDelay),
+		allowedDomains:      append(allowedDomains[:0:0], allowedDomains...),
 	}
 }
 
@@ -112,6 +117,8 @@ func (r *registryClient) run() {
 func (r *registryClient) redial(registry *connectivityv1alpha1.RemoteRegistry) {
 	// update the remote registry field and send redial signal
 	r.remoteRegistry = registry
+	allowedDomains := r.remoteRegistry.Spec.AllowedDomains
+	r.allowedDomains = append(allowedDomains[:0:0], allowedDomains...)
 	r.reDial <- struct{}{}
 }
 
@@ -154,6 +161,10 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 		Name:      desiredServiceRecord.Name,
 		Namespace: desiredServiceRecord.Namespace,
 	})
+
+	if !r.isDomainAllowed(desiredServiceRecord) {
+		return nil
+	}
 
 	currentServiceRecord, err := r.serviceRecordLister.ServiceRecords(desiredServiceRecord.Namespace).Get(desiredServiceRecord.Name)
 	if err != nil {
@@ -234,11 +245,10 @@ func (r *registryClient) convertToKubernetesServiceRecord(fs *hamletv1alpha1.Fed
 		})
 	}
 
+	fqdn := strings.TrimSuffix(dns.CanonicalName(fs.Fqdn), ".")
 	serviceRecord := &connectivityv1alpha1.ServiceRecord{
 		ObjectMeta: metav1.ObjectMeta{
-			// TODO: account for FQDN ending in "."
-			// TODO: account for 64 character limit for resource names
-			Name:      generateServiceRecordName(fs.Fqdn, r.remoteRegistry.Name),
+			Name:      generateServiceRecordName(fqdn, r.remoteRegistry.Name),
 			Namespace: r.namespace,
 			Labels: map[string]string{
 				connectivityv1alpha1.ImportedLabel:                   "",
@@ -265,5 +275,16 @@ func createHash(s string) string {
 	// This never returns an error
 	_, _ = hasher.Write([]byte(s))
 	return fmt.Sprintf("%08x", hasher.Sum32())
+}
 
+func (r *registryClient) isDomainAllowed(sr *connectivityv1alpha1.ServiceRecord) bool {
+	if len(r.allowedDomains) == 0 {
+		return true
+	}
+	for _, domain := range r.allowedDomains {
+		if dns.IsSubDomain(dns.CanonicalName(domain), dns.CanonicalName(sr.Spec.FQDN)) {
+			return true
+		}
+	}
+	return false
 }
