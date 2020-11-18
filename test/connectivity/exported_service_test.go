@@ -26,13 +26,26 @@ var connectivityNamespace = "cross-cluster-connectivity"
 
 var _ = Describe("Exported Service", func() {
 	var certsDir string
+	var clusterToCleanupKubeConfig string
 
 	BeforeEach(func() {
 		var err error
 		certsDir, err = ioutil.TempDir("", "connectivity-test")
 		Expect(err).NotTo(HaveOccurred())
+	})
 
-		cert, key, err := generateCert("nginx.xcc.test")
+	AfterEach(func() {
+		Expect(os.RemoveAll(certsDir)).To(Succeed())
+
+		kubectlWithConfig(clusterToCleanupKubeConfig,
+			"delete", "namespace", "nginx-test")
+	})
+
+	DescribeTable("journeys", func(clientClusterKubeConfig, servicesClusterKubeConfig, servicesClusterID, fqdn string) {
+		clusterToCleanupKubeConfig = servicesClusterKubeConfig
+
+		By("generating a certificate for the fqdn")
+		cert, key, err := generateCert(fqdn)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = ioutil.WriteFile(filepath.Join(certsDir, "cert.pem"), cert, 0755)
@@ -40,20 +53,7 @@ var _ = Describe("Exported Service", func() {
 
 		err = ioutil.WriteFile(filepath.Join(certsDir, "key.pem"), key, 0755)
 		Expect(err).NotTo(HaveOccurred())
-	})
 
-	AfterEach(func() {
-		Expect(os.RemoveAll(certsDir)).To(Succeed())
-
-		// Ensure the nginx-test namespace is gone from both clusters
-		kubectlWithConfig(clusterOneKubeConfig,
-			"delete", "namespace", "nginx-test")
-
-		kubectlWithConfig(clusterTwoKubeConfig,
-			"delete", "namespace", "nginx-test")
-	})
-
-	DescribeTable("journeys", func(clientClusterKubeConfig, servicesClusterKubeConfig, servicesClusterID string) {
 		deployNginx(servicesClusterKubeConfig, certsDir, servicesClusterID)
 
 		By("validating it doesn't discover the published service on the client cluster")
@@ -61,18 +61,18 @@ var _ = Describe("Exported Service", func() {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"get", "svc", "-n", connectivityNamespace)
 			return string(output), err
-		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx-xcc-test"))
+		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring(fqdn))
 
 		By("declaring intent to export the service to the client cluster")
-		_, err := kubectlWithConfig(servicesClusterKubeConfig,
-			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "exported_http_proxy.yaml"))
+		_, err = kubectlWithConfig(servicesClusterKubeConfig,
+			"apply", "-f", generateExportedHTTPProxyFileWithFQDN(fqdn))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating it can connect to the published service on the client cluster")
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"run", "nginx-test", "-i", "--rm", "--image=curlimages/curl", "--restart=Never", "--",
-				"curl", "-v", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, "https://nginx.xcc.test")
+				"curl", "-v", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, fmt.Sprintf("https://%s", fqdn))
 			return string(output), err
 		}, kubectlTimeout, kubectlInterval).Should(And(
 			ContainSubstring("HTTP/2 200"),
@@ -88,7 +88,7 @@ var _ = Describe("Exported Service", func() {
 		Eventually(func() string {
 			output, _ := kubectlWithConfig(clientClusterKubeConfig,
 				"run", "nginx-test", "-i", "--rm", "--image=curlimages/curl", "--restart=Never", "--",
-				"curl", "-s", "-S", "--stderr", "-", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, "https://nginx.xcc.test")
+				"curl", "-s", "-S", "--stderr", "-", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, fmt.Sprintf("https://%s", fqdn))
 			return string(output)
 		}, kubectlTimeout, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 
@@ -101,22 +101,22 @@ var _ = Describe("Exported Service", func() {
 			output, err := kubectlWithConfig(servicesClusterKubeConfig,
 				"get", "servicerecord", "-n", connectivityNamespace)
 			return string(output), err
-		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx.xcc.test"))
+		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring(fqdn))
 
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"get", "servicerecord", "-n", connectivityNamespace)
 			return string(output), err
-		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx.xcc.test"))
+		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring(fqdn))
 
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"get", "service", "-n", connectivityNamespace)
 			return string(output), err
-		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring("nginx-xcc-test"))
+		}, kubectlTimeout, kubectlInterval).ShouldNot(ContainSubstring(fqdn))
 	},
-		Entry("tests connectivity from cluster one to cluster two", clusterOneKubeConfig, clusterTwoKubeConfig, "cluster-two"),
-		Entry("tests connectivity form cluster two to cluster one", clusterTwoKubeConfig, clusterOneKubeConfig, "cluster-one"),
+		Entry("tests connectivity from cluster one to cluster two", clusterOneKubeConfig, clusterTwoKubeConfig, "cluster-two", "nginx-cluster-two.xcc.test"),
+		Entry("tests connectivity from cluster two to cluster one", clusterTwoKubeConfig, clusterOneKubeConfig, "cluster-one", "nginx-cluster-one.xcc.test"),
 	)
 })
 
@@ -160,6 +160,22 @@ func deployNginx(kubeconfig, certsDir, clusterHeaderValue string) {
 	_, err = kubectlWithConfig(kubeconfig,
 		"-n", "nginx-test", "patch", "deployment", "nginx", "--patch", string(nginxDeploymentPatch))
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func generateExportedHTTPProxyFileWithFQDN(fqdn string) string {
+	exportedHTTPProxyTemplate, err := ioutil.ReadFile(filepath.Join("..", "..", "manifests", "example", "nginx", "exported_http_proxy.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
+	exportedHTTPProxy := strings.Replace(string(exportedHTTPProxyTemplate), "fqdn: nginx.xcc.test", fmt.Sprintf("fqdn: %s", fqdn), 1)
+
+	exportedHTTPProxyFile, err := ioutil.TempFile("", "exported_http_proxy")
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = exportedHTTPProxyFile.Write([]byte(exportedHTTPProxy))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(exportedHTTPProxyFile.Close()).NotTo(HaveOccurred())
+
+	return exportedHTTPProxyFile.Name()
 }
 
 func generateCert(fqdn string) (cert []byte, key []byte, err error) {
