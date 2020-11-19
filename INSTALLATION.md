@@ -15,11 +15,11 @@ instructions to cover other deployment scenarios.
 
 ## Installing
 
-1. First, we will `git clone` and `cd` into the `cross-cluster-connectivity-api`
+1. First, we will `git clone` and `cd` into the `cross-cluster-connectivity`
    repository.
    ```bash
-   $ git clone https://github.com/vmware-tanzu/cross-cluster-connectivity-api.git
-   $ cd cross-cluster-connectivity-api
+   $ git clone https://github.com/vmware-tanzu/cross-cluster-connectivity.git
+   $ cd cross-cluster-connectivity
    ```
 
 1. Since Cross-cluster Connectivity is still in the alpha stage, the images will
