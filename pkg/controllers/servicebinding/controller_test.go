@@ -4,6 +4,7 @@
 package servicebinding
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -1110,7 +1111,7 @@ func Test_Update(t *testing.T) {
 		}
 
 		if err := connClientset.ConnectivityV1alpha1().ServiceRecords(testServiceRecords[0].Namespace).
-			Delete(testServiceRecords[0].Name, &metav1.DeleteOptions{}); err != nil {
+			Delete(context.Background(), testServiceRecords[0].Name, metav1.DeleteOptions{}); err != nil {
 			t.Fatalf("error deleting ServiceRecord resource: %v", err)
 		}
 
@@ -1155,7 +1156,7 @@ func setupTestcase(t *testing.T, testCaseServiceRecords []*connectivityv1alpha1.
 func checkService(t *testing.T, kubeClientset *kubefake.Clientset, testCaseService *corev1.Service) func() (bool, error) {
 	return func() (bool, error) {
 		service, err := kubeClientset.CoreV1().Services(testCaseService.Namespace).Get(
-			testCaseService.Name, metav1.GetOptions{})
+			context.Background(), testCaseService.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -1173,7 +1174,7 @@ func checkService(t *testing.T, kubeClientset *kubefake.Clientset, testCaseServi
 func checkEndpoints(t *testing.T, kubeClientset *kubefake.Clientset, testCaseEndpoints *corev1.Endpoints) func() (bool, error) {
 	return func() (bool, error) {
 		endpoints, err := kubeClientset.CoreV1().Endpoints(testCaseEndpoints.Namespace).Get(
-			testCaseEndpoints.Name, metav1.GetOptions{})
+			context.Background(), testCaseEndpoints.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

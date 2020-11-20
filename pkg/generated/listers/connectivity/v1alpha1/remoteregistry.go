@@ -13,8 +13,10 @@ import (
 )
 
 // RemoteRegistryLister helps list RemoteRegistries.
+// All objects returned here must be treated as read-only.
 type RemoteRegistryLister interface {
 	// List lists all RemoteRegistries in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.RemoteRegistry, err error)
 	// RemoteRegistries returns an object that can list and get RemoteRegistries.
 	RemoteRegistries(namespace string) RemoteRegistryNamespaceLister
@@ -45,10 +47,13 @@ func (s *remoteRegistryLister) RemoteRegistries(namespace string) RemoteRegistry
 }
 
 // RemoteRegistryNamespaceLister helps list and get RemoteRegistries.
+// All objects returned here must be treated as read-only.
 type RemoteRegistryNamespaceLister interface {
 	// List lists all RemoteRegistries in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.RemoteRegistry, err error)
 	// Get retrieves the RemoteRegistry from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.RemoteRegistry, error)
 	RemoteRegistryNamespaceListerExpansion
 }

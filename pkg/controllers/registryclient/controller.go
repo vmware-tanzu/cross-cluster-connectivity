@@ -4,6 +4,7 @@
 package registryclient
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -261,6 +262,8 @@ func registriesEqual(r1, r2 *connectivityv1alpha1.RemoteRegistry) bool {
 
 func (r *RegistryClientController) updateStatus(remoteRegistry *connectivityv1alpha1.RemoteRegistry) error {
 	remoteRegistry.Status.ObservedGeneration = remoteRegistry.ObjectMeta.Generation
-	_, err := r.connClientSet.ConnectivityV1alpha1().RemoteRegistries(remoteRegistry.Namespace).UpdateStatus(remoteRegistry)
+	_, err := r.connClientSet.ConnectivityV1alpha1().
+		RemoteRegistries(remoteRegistry.Namespace).
+		UpdateStatus(context.Background(), remoteRegistry, metav1.UpdateOptions{})
 	return err
 }

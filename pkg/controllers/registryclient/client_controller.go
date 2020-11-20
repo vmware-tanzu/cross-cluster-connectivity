@@ -168,7 +168,7 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 			log.Infof("creating: %s/%s", desiredServiceRecord.Namespace, desiredServiceRecord.Name)
 
 			_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
-				Create(desiredServiceRecord)
+				Create(context.Background(), desiredServiceRecord, metav1.CreateOptions{})
 			return err
 		}
 
@@ -180,7 +180,7 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 		log.Infof("deleting %s/%s due to non-allowed domain", currentServiceRecord.Namespace, currentServiceRecord.Name)
 
 		err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).
-			Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
+			Delete(context.Background(), currentServiceRecord.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return fmt.Errorf("error deleting ServiceRecord: %v", err)
 		}
@@ -197,7 +197,7 @@ func (r *registryClient) syncHamletService(f *hamletv1alpha1.FederatedService) e
 		return nil
 	}
 
-	_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(newServiceRecord.Namespace).Update(newServiceRecord)
+	_, err = r.connClientSet.ConnectivityV1alpha1().ServiceRecords(newServiceRecord.Namespace).Update(context.Background(), newServiceRecord, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("error updating ServiceRecord: %v", err)
 	}
@@ -220,7 +220,7 @@ func (r *registryClient) deleteServiceRecord(serviceRecord *connectivityv1alpha1
 		return fmt.Errorf("error getting current ServiceRecord: %v", err)
 	}
 
-	return r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
+	return r.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(context.Background(), currentServiceRecord.Name, metav1.DeleteOptions{})
 }
 
 // OnCreate handler from Hamlet server

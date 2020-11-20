@@ -4,6 +4,7 @@
 package servicebinding
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"sort"
@@ -298,7 +299,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 			},
 		}
 
-		newService, err = s.kubeClient.CoreV1().Services(newService.Namespace).Create(newService)
+		newService, err = s.kubeClient.CoreV1().Services(newService.Namespace).Create(context.Background(), newService, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -315,7 +316,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 				},
 			}
 
-			_, err = s.kubeClient.CoreV1().Services(newService.Namespace).UpdateStatus(newService)
+			_, err = s.kubeClient.CoreV1().Services(newService.Namespace).UpdateStatus(context.Background(), newService, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -353,7 +354,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 	// => reconcile
 	if !apiequality.Semantic.DeepEqual(currentService.Spec.Ports, newService.Spec.Ports) ||
 		!apiequality.Semantic.DeepEqual(currentService.OwnerReferences, newService.OwnerReferences) {
-		newService, err = s.kubeClient.CoreV1().Services(newService.Namespace).Update(newService)
+		newService, err = s.kubeClient.CoreV1().Services(newService.Namespace).Update(context.Background(), newService, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -362,7 +363,7 @@ func (s *ServiceBindingController) syncService(fs *connectivityv1alpha1.ServiceR
 	// actual status doesn't match desired status, reconcile
 	if !apiequality.Semantic.DeepEqual(newService.Status, desiredStatus) {
 		newService.Status = desiredStatus
-		_, err = s.kubeClient.CoreV1().Services(newService.Namespace).UpdateStatus(newService)
+		_, err = s.kubeClient.CoreV1().Services(newService.Namespace).UpdateStatus(context.Background(), newService, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -392,7 +393,7 @@ func (s *ServiceBindingController) syncEndpoints(fs *connectivityv1alpha1.Servic
 			Subsets: desiredSubsets,
 		}
 
-		if _, err = s.kubeClient.CoreV1().Endpoints(endpoints.Namespace).Create(endpoints); err != nil {
+		if _, err = s.kubeClient.CoreV1().Endpoints(endpoints.Namespace).Create(context.Background(), endpoints, metav1.CreateOptions{}); err != nil {
 			return err
 		}
 
@@ -409,7 +410,7 @@ func (s *ServiceBindingController) syncEndpoints(fs *connectivityv1alpha1.Servic
 		return nil
 	}
 
-	_, err = s.kubeClient.CoreV1().Endpoints(newEndpoints.Namespace).Update(newEndpoints)
+	_, err = s.kubeClient.CoreV1().Endpoints(newEndpoints.Namespace).Update(context.Background(), newEndpoints, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("error updating Service: %v", err)
 	}

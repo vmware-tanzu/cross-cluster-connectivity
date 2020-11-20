@@ -4,6 +4,7 @@
 package registryclient_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -104,14 +105,12 @@ var _ = Describe("ClientController", func() {
 				Address: fmt.Sprintf("127.0.0.1:%d", hamletPort),
 			},
 		}
-
 	})
 
 	JustBeforeEach(func() {
 		_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-			Create(remoteRegistry)
+			Create(context.Background(), remoteRegistry, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
-
 	})
 
 	AfterEach(func() {
@@ -121,7 +120,7 @@ var _ = Describe("ClientController", func() {
 	It("sets a status on the RemoteRegistry indicating it's valid", func() {
 		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-				Get(remoteRegistry.Name, metav1.GetOptions{})
+				Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 		}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
@@ -133,7 +132,7 @@ var _ = Describe("ClientController", func() {
 	It("sets the ObservedGeneration on the RemoteRegistry indicating the controller does not need to handle the same generation of RemoteRegistry again", func() {
 		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-				Get(remoteRegistry.Name, metav1.GetOptions{})
+				Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 		}, 5*time.Second, time.Second).Should(MatchObservedGeneration(remoteRegistry.Generation))
 	})
 
@@ -147,7 +146,7 @@ var _ = Describe("ClientController", func() {
 		It("creates a service record in the Kubernetes API", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
 					"Name": Equal("some-service.some.domain-06df7236"),
@@ -158,7 +157,7 @@ var _ = Describe("ClientController", func() {
 		It("sets a label on the service record with the registry name", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
 					"Labels": HaveKeyWithValue(connectivityv1alpha1.ConnectivityRemoteRegistryLabel, "some-remote-registry"),
@@ -169,7 +168,7 @@ var _ = Describe("ClientController", func() {
 		It("adds an OwnerReference to the RemoteRegistry on the created ServiceRecord", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
 					"OwnerReferences": ConsistOf(metav1.OwnerReference{
@@ -204,7 +203,7 @@ var _ = Describe("ClientController", func() {
 			It("creates service records for all imported services", func() {
 				Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 					return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-						List(metav1.ListOptions{})
+						List(context.Background(), metav1.ListOptions{})
 				}, 5*time.Second, time.Second).Should(
 					ConsistOfServiceRecords(
 						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
@@ -223,26 +222,26 @@ var _ = Describe("ClientController", func() {
 					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-							List(metav1.ListOptions{})
+							List(context.Background(), metav1.ListOptions{})
 					}, 5*time.Second, time.Second).Should(WithTransform(transformServiceRecordListToItems, HaveLen(7)))
 
 					By("Updating the RemoteRegistry to add the domain filter")
 					remoteRegistry.Spec.AllowedDomains = []string{"some.domain"}
 					remoteRegistry.ObjectMeta.Generation = 42
 					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-						Update(remoteRegistry)
+						Update(context.Background(), remoteRegistry, metav1.UpdateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 						return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-							Get(remoteRegistry.Name, metav1.GetOptions{})
+							Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 					}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
 				})
 
 				It("service records with non-matching domains should be deleted, and only service records for services with matching domains should remain", func() {
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-							List(metav1.ListOptions{})
+							List(context.Background(), metav1.ListOptions{})
 					}, 5*time.Second, time.Second).Should(
 						ConsistOfServiceRecords(
 							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
@@ -266,7 +265,7 @@ var _ = Describe("ClientController", func() {
 			It("only creates service records for services with matching domains", func() {
 				Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 					return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-						List(metav1.ListOptions{})
+						List(context.Background(), metav1.ListOptions{})
 				}, 5*time.Second, time.Second).Should(
 					ConsistOfServiceRecords(
 						MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
@@ -283,26 +282,26 @@ var _ = Describe("ClientController", func() {
 					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-							List(metav1.ListOptions{})
+							List(context.Background(), metav1.ListOptions{})
 					}, 5*time.Second, time.Second).Should(WithTransform(transformServiceRecordListToItems, HaveLen(5)))
 
 					By("Updating the RemoteRegistry to remove the domain filter")
 					remoteRegistry.Spec.AllowedDomains = []string{}
 					remoteRegistry.ObjectMeta.Generation = 42
 					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-						Update(remoteRegistry)
+						Update(context.Background(), remoteRegistry, metav1.UpdateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 						return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-							Get(remoteRegistry.Name, metav1.GetOptions{})
+							Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 					}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
 				})
 
 				It("creates service records for all imported services", func() {
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 						return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-							List(metav1.ListOptions{})
+							List(context.Background(), metav1.ListOptions{})
 					}, 5*time.Second, time.Second).Should(
 						ConsistOfServiceRecords(
 							MatchKubeObjectWithFields(gstruct.Fields{"Name": Equal("some-service.some.domain-06df7236")}),
@@ -330,7 +329,7 @@ var _ = Describe("ClientController", func() {
 		It("creates a service record in the Kubernetes API", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(MatchKubeObjectWithFields(gstruct.Fields{
 					"Name": Equal(fmt.Sprintf("%s-06df7236", fqdn)),
@@ -360,7 +359,7 @@ var _ = Describe("ClientController", func() {
 			stateProvider.GetStateReturns([]proto.Message{federatedService, anotherFederatedService}, nil)
 
 			_, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-				Create(&connectivityv1alpha1.ServiceRecord{
+				Create(context.Background(), &connectivityv1alpha1.ServiceRecord{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "some-service.some.domain-06df7236",
 						Namespace: "cross-cluster-connectivity",
@@ -369,11 +368,11 @@ var _ = Describe("ClientController", func() {
 					Spec: connectivityv1alpha1.ServiceRecordSpec{
 						FQDN: "some-service.some.domain",
 					},
-				})
+				}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-				Create(&connectivityv1alpha1.ServiceRecord{
+				Create(context.Background(), &connectivityv1alpha1.ServiceRecord{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "orphaned-service-record-06df7236",
 						Namespace: "cross-cluster-connectivity",
@@ -381,14 +380,14 @@ var _ = Describe("ClientController", func() {
 					Spec: connectivityv1alpha1.ServiceRecordSpec{
 						FQDN: "orphaned-service.some.domain",
 					},
-				})
+				}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("eventually deletes the orphaned record and not the record added by the remote registry", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 10*time.Second, time.Second).Should(
 				ConsistOfServiceRecords(
 					MatchKubeObjectWithFields(gstruct.Fields{
@@ -417,7 +416,7 @@ var _ = Describe("ClientController", func() {
 		It("does not create a service record in the Kubernetes API", func() {
 			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-					List(metav1.ListOptions{})
+					List(context.Background(), metav1.ListOptions{})
 			}, 5*time.Second, time.Second).Should(
 				WithTransform(transformServiceRecordListToItems, BeEmpty()),
 			)
@@ -426,7 +425,7 @@ var _ = Describe("ClientController", func() {
 		It("sets a status on the RemoteRegistry resource indicating the validation error", func() {
 			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-					Get(remoteRegistry.Name, metav1.GetOptions{})
+					Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Type":    Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
@@ -453,7 +452,7 @@ var _ = Describe("ClientController", func() {
 			By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
 			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-					Get(remoteRegistry.Name, metav1.GetOptions{})
+					Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Type":   Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
@@ -466,19 +465,19 @@ var _ = Describe("ClientController", func() {
 			remoteRegistry.ObjectMeta.Generation = 42
 
 			_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-				Update(remoteRegistry)
+				Update(context.Background(), remoteRegistry, metav1.UpdateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-					Get(remoteRegistry.Name, metav1.GetOptions{})
+					Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 			}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
 		})
 
 		It("sets a status on the RemoteRegistry indicating the validation error", func() {
 			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
 				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-					Get(remoteRegistry.Name, metav1.GetOptions{})
+					Get(context.Background(), remoteRegistry.Name, metav1.GetOptions{})
 			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Type":    Equal(connectivityv1alpha1.RemoteRegistryConditionValid),

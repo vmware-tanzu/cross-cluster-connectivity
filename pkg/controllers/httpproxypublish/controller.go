@@ -4,6 +4,7 @@
 package httpproxypublish
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -194,7 +195,7 @@ func (h *HTTPProxyPublishController) sync(key string) error {
 		if currentServiceRecord != nil {
 			log.Infof("Syncing deleted service export label")
 			err = h.connClientset.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
-				Delete(desiredServiceRecord.Name, &metav1.DeleteOptions{})
+				Delete(context.Background(), desiredServiceRecord.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return fmt.Errorf("error deleting ServiceRecord: %v", err)
 			}
@@ -209,7 +210,7 @@ func (h *HTTPProxyPublishController) sync(key string) error {
 		if apierrors.IsNotFound(err) {
 			// create exported ServiceRecord if it doesn't exist.
 			_, err := h.connClientset.ConnectivityV1alpha1().ServiceRecords(desiredServiceRecord.Namespace).
-				Create(desiredServiceRecord)
+				Create(context.Background(), desiredServiceRecord, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("error creating ServiceRecord: %v", err)
 			}
@@ -233,7 +234,7 @@ func (h *HTTPProxyPublishController) sync(key string) error {
 	}
 
 	_, err = h.connClientset.ConnectivityV1alpha1().ServiceRecords(newServiceRecord.Namespace).
-		Update(newServiceRecord)
+		Update(context.Background(), newServiceRecord, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("error updating ServiceRecord: %v", err)
 	}
@@ -410,7 +411,7 @@ func (h *HTTPProxyPublishController) deleteServiceRecordAndCachedHTTPProxy(key s
 	}
 
 	err = h.connClientset.ConnectivityV1alpha1().ServiceRecords(toBeDeletedServiceRecord.Namespace).
-		Delete(toBeDeletedServiceRecord.Name, &metav1.DeleteOptions{})
+		Delete(context.Background(), toBeDeletedServiceRecord.Name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("error deleting object: %v", err)
 	}

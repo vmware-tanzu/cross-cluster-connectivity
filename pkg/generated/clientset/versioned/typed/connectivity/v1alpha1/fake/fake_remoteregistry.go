@@ -6,6 +6,8 @@
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -26,7 +28,7 @@ var remoteregistriesResource = schema.GroupVersionResource{Group: "connectivity.
 var remoteregistriesKind = schema.GroupVersionKind{Group: "connectivity.tanzu.vmware.com", Version: "v1alpha1", Kind: "RemoteRegistry"}
 
 // Get takes name of the remoteRegistry, and returns the corresponding remoteRegistry object, and an error if there is any.
-func (c *FakeRemoteRegistries) Get(name string, options v1.GetOptions) (result *v1alpha1.RemoteRegistry, err error) {
+func (c *FakeRemoteRegistries) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.RemoteRegistry, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(remoteregistriesResource, c.ns, name), &v1alpha1.RemoteRegistry{})
 
@@ -37,7 +39,7 @@ func (c *FakeRemoteRegistries) Get(name string, options v1.GetOptions) (result *
 }
 
 // List takes label and field selectors, and returns the list of RemoteRegistries that match those selectors.
-func (c *FakeRemoteRegistries) List(opts v1.ListOptions) (result *v1alpha1.RemoteRegistryList, err error) {
+func (c *FakeRemoteRegistries) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RemoteRegistryList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(remoteregistriesResource, remoteregistriesKind, c.ns, opts), &v1alpha1.RemoteRegistryList{})
 
@@ -59,14 +61,14 @@ func (c *FakeRemoteRegistries) List(opts v1.ListOptions) (result *v1alpha1.Remot
 }
 
 // Watch returns a watch.Interface that watches the requested remoteRegistries.
-func (c *FakeRemoteRegistries) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeRemoteRegistries) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(remoteregistriesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a remoteRegistry and creates it.  Returns the server's representation of the remoteRegistry, and an error, if there is any.
-func (c *FakeRemoteRegistries) Create(remoteRegistry *v1alpha1.RemoteRegistry) (result *v1alpha1.RemoteRegistry, err error) {
+func (c *FakeRemoteRegistries) Create(ctx context.Context, remoteRegistry *v1alpha1.RemoteRegistry, opts v1.CreateOptions) (result *v1alpha1.RemoteRegistry, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(remoteregistriesResource, c.ns, remoteRegistry), &v1alpha1.RemoteRegistry{})
 
@@ -77,7 +79,7 @@ func (c *FakeRemoteRegistries) Create(remoteRegistry *v1alpha1.RemoteRegistry) (
 }
 
 // Update takes the representation of a remoteRegistry and updates it. Returns the server's representation of the remoteRegistry, and an error, if there is any.
-func (c *FakeRemoteRegistries) Update(remoteRegistry *v1alpha1.RemoteRegistry) (result *v1alpha1.RemoteRegistry, err error) {
+func (c *FakeRemoteRegistries) Update(ctx context.Context, remoteRegistry *v1alpha1.RemoteRegistry, opts v1.UpdateOptions) (result *v1alpha1.RemoteRegistry, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(remoteregistriesResource, c.ns, remoteRegistry), &v1alpha1.RemoteRegistry{})
 
@@ -89,7 +91,7 @@ func (c *FakeRemoteRegistries) Update(remoteRegistry *v1alpha1.RemoteRegistry) (
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRemoteRegistries) UpdateStatus(remoteRegistry *v1alpha1.RemoteRegistry) (*v1alpha1.RemoteRegistry, error) {
+func (c *FakeRemoteRegistries) UpdateStatus(ctx context.Context, remoteRegistry *v1alpha1.RemoteRegistry, opts v1.UpdateOptions) (*v1alpha1.RemoteRegistry, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(remoteregistriesResource, "status", c.ns, remoteRegistry), &v1alpha1.RemoteRegistry{})
 
@@ -100,7 +102,7 @@ func (c *FakeRemoteRegistries) UpdateStatus(remoteRegistry *v1alpha1.RemoteRegis
 }
 
 // Delete takes name of the remoteRegistry and deletes it. Returns an error if one occurs.
-func (c *FakeRemoteRegistries) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeRemoteRegistries) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(remoteregistriesResource, c.ns, name), &v1alpha1.RemoteRegistry{})
 
@@ -108,15 +110,15 @@ func (c *FakeRemoteRegistries) Delete(name string, options *v1.DeleteOptions) er
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeRemoteRegistries) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(remoteregistriesResource, c.ns, listOptions)
+func (c *FakeRemoteRegistries) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(remoteregistriesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.RemoteRegistryList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched remoteRegistry.
-func (c *FakeRemoteRegistries) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.RemoteRegistry, err error) {
+func (c *FakeRemoteRegistries) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.RemoteRegistry, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(remoteregistriesResource, c.ns, name, pt, data, subresources...), &v1alpha1.RemoteRegistry{})
 
