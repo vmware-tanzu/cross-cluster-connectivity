@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,6 +76,9 @@ type RemoteRegistry struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec RemoteRegistrySpec `json:"spec"`
+
+	// +optional
+	Status RemoteRegistryStatus `json:"status"`
 }
 
 // RemoteRegistrySpec...
@@ -82,8 +86,53 @@ type RemoteRegistrySpec struct {
 	Address   string            `json:"address"`
 	TLSConfig RegistryTLSConfig `json:"tlsConfig"`
 
-	AllowedDomains []string `json:"allowedDomains"`
+	// +optional
+	AllowedDomains []string `json:"allowedDomains,omitempty"`
 }
+
+// RemoteRegistryStatus...
+type RemoteRegistryStatus struct {
+	// List of status conditions to indicate the status of RemoteRegistry.
+	// +optional
+	Conditions []RemoteRegistryCondition `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the latest generation observed by the controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
+
+// RemoteRegistryConditionType is a valid value for RemoteRegistryCondition.Type
+type RemoteRegistryConditionType string
+
+// RemoteRegistryCondition defines an observation of a RemoteRegistry resource state
+type RemoteRegistryCondition struct {
+	// Type of the condition, known values are ('Valid').
+	// +required
+	Type RemoteRegistryConditionType `json:"type"`
+
+	// Status of the condition, one of ('True', 'False', 'Unknown').
+	// +required
+	Status corev1.ConditionStatus `json:"status"`
+
+	// LastTransitionTime describes the last time the condition transitioned from
+	// one status to another.
+	// +optional
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// Reason is a brief machine readable explanation for the condition's last
+	// transition.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+
+	// Message is a human readable description of the details of the last
+	// transition, complementing reason.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+// RemoteRegistryConditionValid indicates that this RemoteRegistry resource
+// is ready to be read for connection details about a remote registry server.
+const RemoteRegistryConditionValid RemoteRegistryConditionType = "Valid"
 
 // RegistryTLSConfig...
 type RegistryTLSConfig struct {
