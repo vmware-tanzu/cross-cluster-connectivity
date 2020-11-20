@@ -73,6 +73,7 @@ rules:
     resources:
       - servicerecords
       - remoteregistries
+      - remoteregistries/status
     verbs:
       - list
       - watch
