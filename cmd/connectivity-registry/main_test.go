@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
@@ -281,7 +282,7 @@ func Test_RegistryPeering(t *testing.T) {
 			checkImportedService := func() (bool, error) {
 				importedServiceRecord, err := registryClientFake.ConnectivityV1alpha1().
 					ServiceRecords(testcase.importServiceRecord.Namespace).
-					Get(testcase.importServiceRecord.Name, metav1.GetOptions{})
+					Get(context.Background(), testcase.importServiceRecord.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, nil
 				}

@@ -4,6 +4,7 @@
 package orphandeleter_test
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -41,7 +42,7 @@ var _ = Describe("OrphanDeleter", func() {
 		)
 
 		_, err := connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-			Create(&connectivityv1alpha1.ServiceRecord{
+			Create(context.Background(), &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "some-service.some.domain-06df7236",
 					Namespace: "cross-cluster-connectivity",
@@ -49,11 +50,11 @@ var _ = Describe("OrphanDeleter", func() {
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
 					FQDN: "some-service.some.domain",
 				},
-			})
+			}, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-			Create(&connectivityv1alpha1.ServiceRecord{
+			Create(context.Background(), &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "orphaned-service-record-06df7236",
 					Namespace: "cross-cluster-connectivity",
@@ -61,7 +62,7 @@ var _ = Describe("OrphanDeleter", func() {
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
 					FQDN: "orphaned-service.some.domain",
 				},
-			})
+			}, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		connectivityInformerFactory.Start(nil)
@@ -76,7 +77,7 @@ var _ = Describe("OrphanDeleter", func() {
 
 		Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 			return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-				List(metav1.ListOptions{})
+				List(context.Background(), metav1.ListOptions{})
 		}, 2*time.Second, 100*time.Millisecond).Should(
 			MatchServiceRecords(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -97,7 +98,7 @@ var _ = Describe("OrphanDeleter", func() {
 
 		Consistently(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 			return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-				List(metav1.ListOptions{})
+				List(context.Background(), metav1.ListOptions{})
 		}, 1*time.Second, 100*time.Millisecond).Should(
 			MatchServiceRecords(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -120,7 +121,7 @@ var _ = Describe("OrphanDeleter", func() {
 
 		Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
 			return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
-				List(metav1.ListOptions{})
+				List(context.Background(), metav1.ListOptions{})
 		}, 2*time.Second, 100*time.Millisecond).Should(
 			MatchServiceRecords(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{

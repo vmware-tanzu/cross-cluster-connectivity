@@ -4,6 +4,7 @@
 package httpproxypublish
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"testing"
@@ -605,7 +606,7 @@ func Test_Controller(t *testing.T) {
 			checkServiceRecord := func() (bool, error) {
 				serviceRecord, err := connClientset.ConnectivityV1alpha1().
 					ServiceRecords(testcase.serviceRecord.Namespace).
-					Get(testcase.serviceRecord.Name, metav1.GetOptions{})
+					Get(context.Background(), testcase.serviceRecord.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -640,14 +641,14 @@ func Test_Controller(t *testing.T) {
 				Object: newUnstructuredHTTPProxy,
 			}
 
-			if _, err = dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(testcase.httpProxy.Namespace).Update(newHttpProxy, metav1.UpdateOptions{}); err != nil {
+			if _, err = dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(testcase.httpProxy.Namespace).Update(context.Background(), newHttpProxy, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("error updating HTTPProxy resource to delete the label: %v", err)
 			}
 
 			checkServiceRecordIsDeleted := func() (bool, error) {
 				_, err := connClientset.ConnectivityV1alpha1().
 					ServiceRecords(testcase.serviceRecord.Namespace).
-					Get(testcase.serviceRecord.Name, metav1.GetOptions{})
+					Get(context.Background(), testcase.serviceRecord.Name, metav1.GetOptions{})
 				if err != nil {
 					if k8serrors.IsNotFound(err) {
 						return true, nil
@@ -721,7 +722,7 @@ func Test_UnexportedHTTPProxy(t *testing.T) {
 		checkServiceRecordDoesNotExist := func() (bool, error) {
 			_, err := connClientset.ConnectivityV1alpha1().
 				ServiceRecords("http-proxy-namespace").
-				Get("test.some.domain", metav1.GetOptions{})
+				Get(context.Background(), "test.some.domain", metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					return true, nil
@@ -825,8 +826,8 @@ func Test_DeleteHttpProxy(t *testing.T) {
 
 		checkServiceRecord := func() (bool, error) {
 			actualServiceRecord, err := connClientset.ConnectivityV1alpha1().
-				ServiceRecords(httpProxy.Namespace).
-				Get(serviceRecord.Name, metav1.GetOptions{})
+				ServiceRecords(serviceRecord.Namespace).
+				Get(context.Background(), serviceRecord.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -853,14 +854,14 @@ func Test_DeleteHttpProxy(t *testing.T) {
 		}
 
 		if err := dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(httpProxy.Namespace).
-			Delete(httpProxy.Name, &metav1.DeleteOptions{}); err != nil {
+			Delete(context.Background(), httpProxy.Name, metav1.DeleteOptions{}); err != nil {
 			t.Fatalf("error updating HTTPProxy resource to delete the label: %v", err)
 		}
 
 		checkServiceRecordDoesNotExist := func() (bool, error) {
 			_, err := connClientset.ConnectivityV1alpha1().
-				ServiceRecords(httpProxy.Namespace).
-				Get(serviceRecord.Name, metav1.GetOptions{})
+				ServiceRecords(serviceRecord.Namespace).
+				Get(context.Background(), serviceRecord.Name, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					return true, nil

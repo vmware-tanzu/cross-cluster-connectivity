@@ -13,8 +13,10 @@ import (
 )
 
 // ServiceRecordLister helps list ServiceRecords.
+// All objects returned here must be treated as read-only.
 type ServiceRecordLister interface {
 	// List lists all ServiceRecords in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ServiceRecord, err error)
 	// ServiceRecords returns an object that can list and get ServiceRecords.
 	ServiceRecords(namespace string) ServiceRecordNamespaceLister
@@ -45,10 +47,13 @@ func (s *serviceRecordLister) ServiceRecords(namespace string) ServiceRecordName
 }
 
 // ServiceRecordNamespaceLister helps list and get ServiceRecords.
+// All objects returned here must be treated as read-only.
 type ServiceRecordNamespaceLister interface {
 	// List lists all ServiceRecords in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ServiceRecord, err error)
 	// Get retrieves the ServiceRecord from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ServiceRecord, error)
 	ServiceRecordNamespaceListerExpansion
 }

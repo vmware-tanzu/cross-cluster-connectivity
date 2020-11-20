@@ -6,6 +6,7 @@
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
@@ -48,13 +49,13 @@ func NewFilteredRemoteRegistryInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ConnectivityV1alpha1().RemoteRegistries(namespace).List(options)
+				return client.ConnectivityV1alpha1().RemoteRegistries(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ConnectivityV1alpha1().RemoteRegistries(namespace).Watch(options)
+				return client.ConnectivityV1alpha1().RemoteRegistries(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&connectivityv1alpha1.RemoteRegistry{},

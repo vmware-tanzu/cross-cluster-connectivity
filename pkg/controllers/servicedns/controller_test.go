@@ -4,6 +4,7 @@
 package servicedns_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -55,7 +56,7 @@ var _ = Describe("ServiceDNS", func() {
 				},
 			}
 
-			_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Create(service)
+			_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -82,7 +83,7 @@ var _ = Describe("ServiceDNS", func() {
 
 			It("updates the dns cache", func() {
 				service.ObjectMeta.Annotations[connectivityv1alpha1.FQDNAnnotation] = "some-edited-service.some.domain"
-				_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Update(service)
+				_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Update(context.Background(), service, metav1.UpdateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() (string, error) {
@@ -112,7 +113,7 @@ var _ = Describe("ServiceDNS", func() {
 				},
 			}
 
-			_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Create(service)
+			_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() (string, error) {
@@ -123,7 +124,7 @@ var _ = Describe("ServiceDNS", func() {
 				return cacheEntry.IP.String(), nil
 			}, time.Second*5, time.Second).Should(Equal("1.2.3.4"))
 
-			err = kubeClientset.CoreV1().Services("cross-cluster-connectivity").Delete("some-service", &metav1.DeleteOptions{})
+			err = kubeClientset.CoreV1().Services("cross-cluster-connectivity").Delete(context.Background(), "some-service", metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

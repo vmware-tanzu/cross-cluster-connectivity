@@ -4,6 +4,7 @@
 package orphandeleter
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -127,5 +128,5 @@ func (o *OrphanDeleter) deleteServiceRecord(namespacedName types.NamespacedName)
 		return fmt.Errorf("error getting current ServiceRecord: %v", err)
 	}
 
-	return o.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(currentServiceRecord.Name, &metav1.DeleteOptions{})
+	return o.connClientSet.ConnectivityV1alpha1().ServiceRecords(currentServiceRecord.Namespace).Delete(context.Background(), currentServiceRecord.Name, metav1.DeleteOptions{})
 }
