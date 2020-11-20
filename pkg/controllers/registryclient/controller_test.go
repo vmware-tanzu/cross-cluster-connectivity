@@ -19,6 +19,7 @@ import (
 	clientsetfake "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/clientset/versioned/fake"
 	connectivityinformers "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/informers/externalversions"
 	hamletv1alpha1 "github.com/vmware/hamlet/api/types/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 
@@ -94,9 +95,10 @@ var _ = Describe("ClientController", func() {
 
 		remoteRegistry = &connectivityv1alpha1.RemoteRegistry{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "some-remote-registry",
-				Namespace: "cross-cluster-connectivity",
-				UID:       "remote-registry-uid",
+				Name:       "some-remote-registry",
+				Namespace:  "cross-cluster-connectivity",
+				UID:        "remote-registry-uid",
+				Generation: 1,
 			},
 			Spec: connectivityv1alpha1.RemoteRegistrySpec{
 				Address: fmt.Sprintf("127.0.0.1:%d", hamletPort),
@@ -109,10 +111,27 @@ var _ = Describe("ClientController", func() {
 		_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
 			Create(remoteRegistry)
 		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+				Get(remoteRegistry.Name, metav1.GetOptions{})
+		}, 5*time.Second, time.Second).Should(MatchObservedGeneration(remoteRegistry.Generation))
 	})
 
 	AfterEach(func() {
 		Expect(hamletServer.Stop()).To(Succeed())
+	})
+
+	It("sets a status on the RemoteRegistry indicating it's valid", func() {
+		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+				Get(remoteRegistry.Name, metav1.GetOptions{})
+		}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":   Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
+				"Status": Equal(corev1.ConditionTrue),
+			}),
+		))
 	})
 
 	When("the remote registry server has a service record", func() {
@@ -196,7 +215,7 @@ var _ = Describe("ClientController", func() {
 				)
 			})
 
-			When("the domain filter is added to the RemoteRegistry", func() {
+			When("the RemoteRegistry is updated to add a domain filter", func() {
 				JustBeforeEach(func() {
 					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
@@ -206,9 +225,15 @@ var _ = Describe("ClientController", func() {
 
 					By("Updating the RemoteRegistry to add the domain filter")
 					remoteRegistry.Spec.AllowedDomains = []string{"some.domain"}
+					remoteRegistry.ObjectMeta.Generation = 42
 					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
 						Update(remoteRegistry)
 					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+						return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+							Get(remoteRegistry.Name, metav1.GetOptions{})
+					}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
 				})
 
 				It("service records with non-matching domains should be deleted, and only service records for services with matching domains should remain", func() {
@@ -250,7 +275,7 @@ var _ = Describe("ClientController", func() {
 				)
 			})
 
-			When("the domain filter is removed from the RemoteRegistry", func() {
+			When("the RemoteRegistry is updated to remove the domain filter", func() {
 				JustBeforeEach(func() {
 					By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
 					Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
@@ -260,9 +285,15 @@ var _ = Describe("ClientController", func() {
 
 					By("Updating the RemoteRegistry to remove the domain filter")
 					remoteRegistry.Spec.AllowedDomains = []string{}
+					remoteRegistry.ObjectMeta.Generation = 42
 					_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
 						Update(remoteRegistry)
 					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+						return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+							Get(remoteRegistry.Name, metav1.GetOptions{})
+					}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
 				})
 
 				It("creates service records for all imported services", func() {
@@ -368,6 +399,93 @@ var _ = Describe("ClientController", func() {
 			)
 		})
 	})
+
+	When("the RemoteRegistry is created with an invalid AllowedDomains list", func() {
+		BeforeEach(func() {
+			stateProvider.GetStateReturns([]proto.Message{
+				dummyFederatedService(("some-service.some.domain")),
+			}, nil)
+
+			remoteRegistry.Spec.AllowedDomains = []string{
+				"invalid..domain",
+			}
+		})
+
+		It("does not create a service record in the Kubernetes API", func() {
+			Eventually(func() (*connectivityv1alpha1.ServiceRecordList, error) {
+				return connClientset.ConnectivityV1alpha1().ServiceRecords("cross-cluster-connectivity").
+					List(metav1.ListOptions{})
+			}, 5*time.Second, time.Second).Should(
+				WithTransform(transformServiceRecordListToItems, BeEmpty()),
+			)
+		})
+
+		It("sets a status on the RemoteRegistry resource indicating the validation error", func() {
+			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+					Get(remoteRegistry.Name, metav1.GetOptions{})
+			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":    Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
+					"Status":  Equal(corev1.ConditionFalse),
+					"Reason":  Equal("InvalidDomain"),
+					"Message": ContainSubstring("Invalid domain"),
+				}),
+			))
+		})
+	})
+
+	When("a previously valid RemoteRegistry is updated with an invalid AllowedDomains list", func() {
+		BeforeEach(func() {
+			stateProvider.GetStateReturns([]proto.Message{
+				dummyFederatedService(("some-service.some.domain")),
+			}, nil)
+
+			remoteRegistry.Spec.AllowedDomains = []string{
+				"some.domain",
+			}
+		})
+
+		JustBeforeEach(func() {
+			By("Ensuring that the controller has reconciled before the RemoteRegistry is updated")
+			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+					Get(remoteRegistry.Name, metav1.GetOptions{})
+			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
+					"Status": Equal(corev1.ConditionTrue),
+				}),
+			))
+
+			By("Updating the RemoteRegistry to add an invalid domain filter")
+			remoteRegistry.Spec.AllowedDomains = []string{"invalid..domain"}
+			remoteRegistry.ObjectMeta.Generation = 42
+
+			_, err := connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+				Update(remoteRegistry)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+					Get(remoteRegistry.Name, metav1.GetOptions{})
+			}, 5*time.Second, time.Second).Should(MatchObservedGeneration(42))
+		})
+
+		It("sets a status on the RemoteRegistry indicating the validation error", func() {
+			Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+				return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+					Get(remoteRegistry.Name, metav1.GetOptions{})
+			}, 5*time.Second, time.Second).Should(ConsistOfStatusConditions(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":    Equal(connectivityv1alpha1.RemoteRegistryConditionValid),
+					"Status":  Equal(corev1.ConditionFalse),
+					"Reason":  Equal("InvalidDomain"),
+					"Message": ContainSubstring("Invalid domain"),
+				}),
+			))
+		})
+	})
 })
 
 func randomPort() int {
@@ -389,6 +507,20 @@ func MatchKubeObjectWithFields(objectMetaFields gstruct.Fields) types.GomegaMatc
 	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, objectMetaFields),
 	})
+}
+
+func MatchObservedGeneration(generationNum int64) types.GomegaMatcher {
+	return WithTransform(func(remoteRegistry *connectivityv1alpha1.RemoteRegistry) int64 {
+		return remoteRegistry.Status.ObservedGeneration
+	}, Equal(generationNum))
+}
+
+func ConsistOfStatusConditions(conditions ...interface{}) types.GomegaMatcher {
+	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Conditions": ConsistOf(conditions...),
+		}),
+	}))
 }
 
 func transformServiceRecordListToItems(srl *connectivityv1alpha1.ServiceRecordList) []connectivityv1alpha1.ServiceRecord {

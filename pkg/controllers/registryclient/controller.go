@@ -11,6 +11,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -137,6 +139,38 @@ func (r *RegistryClientController) syncHandler(key string) error {
 		return err
 	}
 
+	// RemoteRegistry hasn't changed. Exit early to prevent another reconciliation.
+	if remoteRegistry.Status.ObservedGeneration == remoteRegistry.ObjectMeta.Generation {
+		return nil
+	}
+
+	lastTransitionTime := &metav1.Time{
+		Time: time.Now(),
+	}
+
+	err = remoteRegistry.ValidateDomains()
+	if err != nil {
+		remoteRegistry.Status.Conditions = []connectivityv1alpha1.RemoteRegistryCondition{
+			{
+				Type:               connectivityv1alpha1.RemoteRegistryConditionValid,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: lastTransitionTime,
+				Reason:             "InvalidDomain",
+				Message:            err.Error(),
+			},
+		}
+
+		return r.updateStatus(remoteRegistry)
+	}
+
+	remoteRegistry.Status.Conditions = []connectivityv1alpha1.RemoteRegistryCondition{
+		{
+			Type:               connectivityv1alpha1.RemoteRegistryConditionValid,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: lastTransitionTime,
+		},
+	}
+
 	r.Lock()
 	defer r.Unlock()
 
@@ -145,7 +179,9 @@ func (r *RegistryClientController) syncHandler(key string) error {
 	if exists {
 		// RemoteRegistry hasn't changed, do nothing
 		if registriesEqual(remoteRegistry, cachedRegistryClient.remoteRegistry) {
-			return nil
+			// If the control flow reached this point, this means the generation
+			// numbers did not match.
+			return r.updateStatus(remoteRegistry)
 		}
 
 		// RemoteRegistry has changed, redial to restart connection
@@ -167,7 +203,7 @@ func (r *RegistryClientController) syncHandler(key string) error {
 		r.clients[key] = registryClient
 	}
 
-	return nil
+	return r.updateStatus(remoteRegistry)
 }
 
 func (r *RegistryClientController) enqueueRemoteRegistry(obj interface{}) {
@@ -216,4 +252,10 @@ func (r *RegistryClientController) handleDelete(obj interface{}) {
 
 func registriesEqual(r1, r2 *connectivityv1alpha1.RemoteRegistry) bool {
 	return reflect.DeepEqual(r1.Spec, r2.Spec)
+}
+
+func (r *RegistryClientController) updateStatus(remoteRegistry *connectivityv1alpha1.RemoteRegistry) error {
+	remoteRegistry.Status.ObservedGeneration = remoteRegistry.ObjectMeta.Generation
+	_, err := r.connClientSet.ConnectivityV1alpha1().RemoteRegistries(remoteRegistry.Namespace).UpdateStatus(remoteRegistry)
+	return err
 }
