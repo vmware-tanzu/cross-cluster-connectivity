@@ -140,6 +140,8 @@ func (r *RegistryClientController) syncHandler(key string) error {
 	}
 
 	// RemoteRegistry hasn't changed. Exit early to prevent another reconciliation.
+	// Since updating the status will cause syncHandler to be called again on the
+	// same RemoteRegistry, this check will prevent hot-looping in this scenario.
 	if remoteRegistry.Status.ObservedGeneration == remoteRegistry.ObjectMeta.Generation {
 		return nil
 	}

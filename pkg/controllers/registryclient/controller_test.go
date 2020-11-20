@@ -112,10 +112,6 @@ var _ = Describe("ClientController", func() {
 			Create(remoteRegistry)
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
-			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
-				Get(remoteRegistry.Name, metav1.GetOptions{})
-		}, 5*time.Second, time.Second).Should(MatchObservedGeneration(remoteRegistry.Generation))
 	})
 
 	AfterEach(func() {
@@ -132,6 +128,13 @@ var _ = Describe("ClientController", func() {
 				"Status": Equal(corev1.ConditionTrue),
 			}),
 		))
+	})
+
+	It("sets the ObservedGeneration on the RemoteRegistry indicating the controller does not need to handle the same generation of RemoteRegistry again", func() {
+		Eventually(func() (*connectivityv1alpha1.RemoteRegistry, error) {
+			return connClientset.ConnectivityV1alpha1().RemoteRegistries("cross-cluster-connectivity").
+				Get(remoteRegistry.Name, metav1.GetOptions{})
+		}, 5*time.Second, time.Second).Should(MatchObservedGeneration(remoteRegistry.Generation))
 	})
 
 	When("the remote registry server has a service record", func() {
