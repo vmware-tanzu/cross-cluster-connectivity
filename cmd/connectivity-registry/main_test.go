@@ -40,6 +40,7 @@ func Test_RegistryPeering(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "shared-services-cls",
 					Namespace: "cross-cluster-connectivity",
+					UID:       "shared-services-cls-uid",
 				},
 				Spec: connectivityv1alpha1.RemoteRegistrySpec{
 					Address: "127.0.0.1:8000",
@@ -79,6 +80,14 @@ func Test_RegistryPeering(t *testing.T) {
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: connectivityv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "RemoteRegistry",
+							Name:       "shared-services-cls",
+							UID:        "shared-services-cls-uid",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -98,6 +107,7 @@ func Test_RegistryPeering(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "shared-services-cls",
 					Namespace: "cross-cluster-connectivity",
+					UID:       "shared-services-cls-uid",
 				},
 				Spec: connectivityv1alpha1.RemoteRegistrySpec{
 					Address: "127.0.0.1:8000",
@@ -140,6 +150,14 @@ func Test_RegistryPeering(t *testing.T) {
 						connectivityv1alpha1.ServicePortAnnotation: "443",
 						connectivityv1alpha1.GlobalVIPAnnotation:   "1.2.3.4",
 					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: connectivityv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "RemoteRegistry",
+							Name:       "shared-services-cls",
+							UID:        "shared-services-cls-uid",
+						},
+					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
 					FQDN: "foobar.some.domain",
@@ -158,6 +176,7 @@ func Test_RegistryPeering(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "shared-services-cls",
 					Namespace: "cross-cluster-connectivity",
+					UID:       "shared-services-cls-uid",
 				},
 				Spec: connectivityv1alpha1.RemoteRegistrySpec{
 					Address: "127.0.0.1:8000",
@@ -201,6 +220,14 @@ func Test_RegistryPeering(t *testing.T) {
 						connectivityv1alpha1.ServicePortAnnotation: "443",
 						connectivityv1alpha1.GlobalVIPAnnotation:   "1.2.3.4",
 					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: connectivityv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "RemoteRegistry",
+							Name:       "shared-services-cls",
+							UID:        "shared-services-cls-uid",
+						},
+					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
 					FQDN: "foobar.some.domain",
@@ -223,6 +250,7 @@ func Test_RegistryPeering(t *testing.T) {
 			}
 
 			testcase.remoteRegistry.Spec.TLSConfig.ServerCA = certBytes
+			testcase.remoteRegistry.ObjectMeta.Generation = 1
 
 			// create the client fake client with the test RemoteRegistry
 			registryClientFake := fake.NewSimpleClientset(testcase.remoteRegistry)
