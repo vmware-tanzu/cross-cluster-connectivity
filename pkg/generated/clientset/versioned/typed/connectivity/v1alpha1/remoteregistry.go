@@ -26,6 +26,7 @@ type RemoteRegistriesGetter interface {
 type RemoteRegistryInterface interface {
 	Create(*v1alpha1.RemoteRegistry) (*v1alpha1.RemoteRegistry, error)
 	Update(*v1alpha1.RemoteRegistry) (*v1alpha1.RemoteRegistry, error)
+	UpdateStatus(*v1alpha1.RemoteRegistry) (*v1alpha1.RemoteRegistry, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
 	Get(name string, options v1.GetOptions) (*v1alpha1.RemoteRegistry, error)
@@ -113,6 +114,22 @@ func (c *remoteRegistries) Update(remoteRegistry *v1alpha1.RemoteRegistry) (resu
 		Namespace(c.ns).
 		Resource("remoteregistries").
 		Name(remoteRegistry.Name).
+		Body(remoteRegistry).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *remoteRegistries) UpdateStatus(remoteRegistry *v1alpha1.RemoteRegistry) (result *v1alpha1.RemoteRegistry, err error) {
+	result = &v1alpha1.RemoteRegistry{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("remoteregistries").
+		Name(remoteRegistry.Name).
+		SubResource("status").
 		Body(remoteRegistry).
 		Do().
 		Into(result)

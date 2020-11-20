@@ -56,8 +56,47 @@ spec:
               type: object
           required:
           - address
-          - allowedDomains
           - tlsConfig
+          type: object
+        status:
+          description: RemoteRegistryStatus...
+          properties:
+            conditions:
+              description: List of status conditions to indicate the status of RemoteRegistry.
+              items:
+                description: RemoteRegistryCondition defines an observation of a RemoteRegistry
+                  resource state
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime describes the last time the condition
+                      transitioned from one status to another.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message is a human readable description of the details
+                      of the last transition, complementing reason.
+                    type: string
+                  reason:
+                    description: Reason is a brief machine readable explanation for
+                      the condition's last transition.
+                    type: string
+                  status:
+                    description: Status of the condition, one of ('True', 'False',
+                      'Unknown').
+                    type: string
+                  type:
+                    description: Type of the condition, known values are ('Ready').
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+            observedGeneration:
+              description: ObservedGeneration is the latest generation observed by
+                the controller.
+              format: int64
+              type: integer
           type: object
       required:
       - spec
