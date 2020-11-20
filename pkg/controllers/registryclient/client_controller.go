@@ -55,7 +55,6 @@ func newRegistryClient(
 	namespace string,
 	deleteOrphanDelay time.Duration,
 ) *registryClient {
-	allowedDomains := remoteRegistry.Spec.AllowedDomains
 	return &registryClient{
 		remoteRegistry:      remoteRegistry,
 		connClientSet:       connClientSet,
@@ -64,7 +63,7 @@ func newRegistryClient(
 		stopCh:              make(chan struct{}),
 		namespace:           namespace,
 		orphanDeleter:       orphandeleter.NewOrphanDeleter(serviceRecordLister, connClientSet, namespace, deleteOrphanDelay),
-		allowedDomains:      append(allowedDomains[:0:0], allowedDomains...),
+		allowedDomains:      cloneStringSlice(remoteRegistry.Spec.AllowedDomains),
 	}
 }
 
@@ -117,8 +116,7 @@ func (r *registryClient) run() {
 func (r *registryClient) redial(registry *connectivityv1alpha1.RemoteRegistry) {
 	// update the remote registry field and send redial signal
 	r.remoteRegistry = registry
-	allowedDomains := r.remoteRegistry.Spec.AllowedDomains
-	r.allowedDomains = append(allowedDomains[:0:0], allowedDomains...)
+	r.allowedDomains = cloneStringSlice(registry.Spec.AllowedDomains)
 	r.reDial <- struct{}{}
 }
 
@@ -308,4 +306,8 @@ func (r *registryClient) isDomainAllowed(sr *connectivityv1alpha1.ServiceRecord)
 		}
 	}
 	return false
+}
+
+func cloneStringSlice(s []string) []string {
+	return append(s[:0:0], s...)
 }
