@@ -44,8 +44,7 @@ type registryClient struct {
 	// send to this channel when RemoteRegistry resource is deleted
 	stopCh chan struct{}
 
-	namespace      string
-	allowedDomains []string
+	namespace string
 }
 
 func newRegistryClient(
@@ -63,7 +62,6 @@ func newRegistryClient(
 		stopCh:              make(chan struct{}),
 		namespace:           namespace,
 		orphanDeleter:       orphandeleter.NewOrphanDeleter(serviceRecordLister, connClientSet, namespace, deleteOrphanDelay),
-		allowedDomains:      cloneStringSlice(remoteRegistry.Spec.AllowedDomains),
 	}
 }
 
@@ -116,7 +114,6 @@ func (r *registryClient) run() {
 func (r *registryClient) redial(registry *connectivityv1alpha1.RemoteRegistry) {
 	// update the remote registry field and send redial signal
 	r.remoteRegistry = registry
-	r.allowedDomains = cloneStringSlice(registry.Spec.AllowedDomains)
 	r.reDial <- struct{}{}
 }
 
@@ -297,17 +294,13 @@ func createHash(s string) string {
 }
 
 func (r *registryClient) isDomainAllowed(sr *connectivityv1alpha1.ServiceRecord) bool {
-	if len(r.allowedDomains) == 0 {
+	if len(r.remoteRegistry.Spec.AllowedDomains) == 0 {
 		return true
 	}
-	for _, domain := range r.allowedDomains {
+	for _, domain := range r.remoteRegistry.Spec.AllowedDomains {
 		if dns.IsSubDomain(dns.CanonicalName(domain), dns.CanonicalName(sr.Spec.FQDN)) {
 			return true
 		}
 	}
 	return false
-}
-
-func cloneStringSlice(s []string) []string {
-	return append(s[:0:0], s...)
 }

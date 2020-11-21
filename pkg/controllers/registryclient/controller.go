@@ -134,10 +134,13 @@ func (r *RegistryClientController) syncHandler(key string) error {
 	}
 
 	// fetch the latest remote registry from cache
-	remoteRegistry, err := r.registryLister.RemoteRegistries(namespace).Get(name)
+	retrievedRemoteRegistry, err := r.registryLister.RemoteRegistries(namespace).Get(name)
 	if err != nil {
 		return err
 	}
+
+	// deep copy to avoid a data race with unit tests
+	remoteRegistry := retrievedRemoteRegistry.DeepCopy()
 
 	// RemoteRegistry hasn't changed. Exit early to prevent another reconciliation.
 	// Since updating the status will cause syncHandler to be called again on the
