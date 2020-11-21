@@ -200,6 +200,11 @@ The `REGISTRY_DOMAIN` must be replaced by the `REGISTRY_DOMAIN` you have chosen
 above. For example, the Kind cluster setup uses
 `shared-services-registry.xcc.test`.
 
+The `allowedDomains` field in the template may be specified to apply
+filtering logic on imported ServiceRecords. By default, an empty
+`allowedDomains` list specifies no filtering and all domains are allowed to
+be imported. See comments in the example template for more details.
+
 Once everything is replaced, run:
 ```bash
 $ kubectl apply -f ./manifests/example/remoteregistry/remoteregistry.yaml
