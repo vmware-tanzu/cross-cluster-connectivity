@@ -68,13 +68,13 @@ var _ = Describe("Exported Service", func() {
 			"apply", "-f", generateExportedHTTPProxyFileWithFQDN(fqdn))
 		Expect(err).NotTo(HaveOccurred())
 
-		By("validating it can connect to the published service on the client cluster")
+		By("Validating it can connect to the published service on the client cluster. This may take a while, especially on fresh deployments.")
 		Eventually(func() (string, error) {
 			output, err := kubectlWithConfig(clientClusterKubeConfig,
 				"run", "nginx-test", "-i", "--rm", "--image=curlimages/curl", "--restart=Never", "--",
 				"curl", "-v", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, fmt.Sprintf("https://%s", fqdn))
 			return string(output), err
-		}, kubectlTimeout, kubectlInterval).Should(And(
+		}, 2*time.Minute, kubectlInterval).Should(And(
 			ContainSubstring("HTTP/2 200"),
 			ContainSubstring(fmt.Sprintf("x-cluster: %s", servicesClusterID)),
 		))
