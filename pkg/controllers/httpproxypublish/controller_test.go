@@ -44,7 +44,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					UID:       "http-proxy-uid",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -89,12 +90,20 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -117,7 +126,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: "http-proxy-namespace",
+					UID:       "http-proxy-uid",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -165,13 +175,21 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
 						connectivityv1alpha1.GlobalVIPAnnotation:   "1.2.3.4",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -194,7 +212,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: "http-proxy-namespace",
+					UID:       "http-proxy-uid",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -261,13 +280,21 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
 						connectivityv1alpha1.GlobalVIPAnnotation:   "1.2.3.4",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -294,7 +321,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: "http-proxy-namespace",
+					UID:       "http-proxy-uid",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -339,12 +367,20 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -362,7 +398,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: "http-proxy-namespace",
+					UID:       "http-proxy-uid",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -415,12 +452,20 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -443,7 +488,8 @@ func Test_Controller(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: "http-proxy-namespace",
+					UID:       "http-proxy-uid",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
@@ -523,12 +569,20 @@ func Test_Controller(t *testing.T) {
 			serviceRecord: &connectivityv1alpha1.ServiceRecord{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test.some.domain",
-					Namespace: "cross-cluster-connectivity",
+					Namespace: "http-proxy-namespace",
 					Labels: map[string]string{
 						connectivityv1alpha1.ExportLabel: "",
 					},
 					Annotations: map[string]string{
 						connectivityv1alpha1.ServicePortAnnotation: "443",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "projectcontour.io/v1",
+							Kind:       "HTTPProxy",
+							UID:        "http-proxy-uid",
+							Name:       "test",
+						},
 					},
 				},
 				Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -586,7 +640,7 @@ func Test_Controller(t *testing.T) {
 				Object: newUnstructuredHTTPProxy,
 			}
 
-			if _, err = dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(metav1.NamespaceDefault).Update(newHttpProxy, metav1.UpdateOptions{}); err != nil {
+			if _, err = dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(testcase.httpProxy.Namespace).Update(newHttpProxy, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("error updating HTTPProxy resource to delete the label: %v", err)
 			}
 
@@ -619,7 +673,8 @@ func Test_UnexportedHTTPProxy(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: "default",
+			Namespace: "http-proxy-namespace",
+			UID:       "http-proxy-uid",
 			Labels:    map[string]string{},
 		},
 		Spec: contourv1.HTTPProxySpec{
@@ -665,7 +720,7 @@ func Test_UnexportedHTTPProxy(t *testing.T) {
 
 		checkServiceRecordDoesNotExist := func() (bool, error) {
 			_, err := connClientset.ConnectivityV1alpha1().
-				ServiceRecords("default").
+				ServiceRecords("http-proxy-namespace").
 				Get("test.some.domain", metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -692,7 +747,8 @@ func Test_DeleteHttpProxy(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: "default",
+			Namespace: "http-proxy-namespace",
+			UID:       "http-proxy-uid",
 			Labels: map[string]string{
 				connectivityv1alpha1.ExportLabel: "",
 			},
@@ -737,12 +793,20 @@ func Test_DeleteHttpProxy(t *testing.T) {
 	var serviceRecord = &connectivityv1alpha1.ServiceRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test.some.domain",
-			Namespace: "cross-cluster-connectivity",
+			Namespace: httpProxy.Namespace,
 			Labels: map[string]string{
 				connectivityv1alpha1.ExportLabel: "",
 			},
 			Annotations: map[string]string{
 				connectivityv1alpha1.ServicePortAnnotation: "443",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "projectcontour.io/v1",
+					Kind:       "HTTPProxy",
+					UID:        "http-proxy-uid",
+					Name:       "test",
+				},
 			},
 		},
 		Spec: connectivityv1alpha1.ServiceRecordSpec{
@@ -761,7 +825,7 @@ func Test_DeleteHttpProxy(t *testing.T) {
 
 		checkServiceRecord := func() (bool, error) {
 			actualServiceRecord, err := connClientset.ConnectivityV1alpha1().
-				ServiceRecords(serviceRecord.Namespace).
+				ServiceRecords(httpProxy.Namespace).
 				Get(serviceRecord.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
@@ -788,14 +852,14 @@ func Test_DeleteHttpProxy(t *testing.T) {
 			t.Errorf("ServiceRecord did not match: %v", err)
 		}
 
-		if err := dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(metav1.NamespaceDefault).
+		if err := dynamicClientset.Resource(contourv1.HTTPProxyGVR).Namespace(httpProxy.Namespace).
 			Delete(httpProxy.Name, &metav1.DeleteOptions{}); err != nil {
 			t.Fatalf("error updating HTTPProxy resource to delete the label: %v", err)
 		}
 
 		checkServiceRecordDoesNotExist := func() (bool, error) {
 			_, err := connClientset.ConnectivityV1alpha1().
-				ServiceRecords(serviceRecord.Namespace).
+				ServiceRecords(httpProxy.Namespace).
 				Get(serviceRecord.Name, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -845,10 +909,8 @@ func setupTestcase(t *testing.T, testCaseHttpProxy *contourv1.HTTPProxy, testCas
 	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactory(connClientset, 30*time.Second)
 	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 
-	namespace := "cross-cluster-connectivity"
-
 	httpProxyPublishController, err := NewHTTPProxyPublishController(
-		nodeInformer, contourInformer, serviceRecordInformer, connClientset, namespace)
+		nodeInformer, contourInformer, serviceRecordInformer, connClientset)
 	if err != nil {
 		t.Fatalf("error creating HTTPProxyPublish controller: %v", err)
 	}

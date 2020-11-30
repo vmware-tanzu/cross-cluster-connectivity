@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/httpproxypublish"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/servicerecorddelete"
 	connectivityclientset "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/clientset/versioned"
 	connectivityinformers "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/generated/informers/externalversions"
 )
@@ -55,27 +54,13 @@ func main() {
 	contourInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 30*time.Second)
 	contourInformer := contourInformerFactory.ForResource(contourv1.HTTPProxyGVR)
 
-	namespace, exists := os.LookupEnv("NAMESPACE")
-	if !exists {
-		log.Error("NAMESPACE environment variable has not been set")
-		os.Exit(1)
-	}
-
-	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactoryWithOptions(connectivityClientset, 30*time.Second, connectivityinformers.WithNamespace(namespace))
+	connectivityInformerFactory := connectivityinformers.NewSharedInformerFactoryWithOptions(connectivityClientset, 30*time.Second)
 	serviceRecordInformer := connectivityInformerFactory.Connectivity().V1alpha1().ServiceRecords()
 
 	httpProxyPublishController, err := httpproxypublish.NewHTTPProxyPublishController(
-		nodeInformer, contourInformer, serviceRecordInformer, connectivityClientset, namespace)
+		nodeInformer, contourInformer, serviceRecordInformer, connectivityClientset)
 	if err != nil {
 		log.Errorf("error creating HTTPProxyPublish controller: %v", err)
-		os.Exit(1)
-	}
-
-	serviceRecordOrphanDeleteController, err := servicerecorddelete.NewServiceRecordOrphanDeleteController(
-		connectivityClientset, serviceRecordInformer, contourInformer,
-	)
-	if err != nil {
-		log.Errorf("error creating ServiceRecordOrphanDelete controller: %v", err)
 		os.Exit(1)
 	}
 
@@ -90,7 +75,6 @@ func main() {
 	connectivityInformerFactory.WaitForCacheSync(stopCh)
 
 	go httpProxyPublishController.Run(3, stopCh)
-	go serviceRecordOrphanDeleteController.Run(3, stopCh)
 
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM)

@@ -44,8 +44,6 @@ type HTTPProxyPublishController struct {
 	workqueue workqueue.RateLimitingInterface
 
 	deletedIndexer cache.Indexer
-
-	namespace string
 }
 
 var (
@@ -75,7 +73,7 @@ func NewHTTPProxyPublishController(nodeinformer v1informers.NodeInformer,
 	contourInformer informers.GenericInformer,
 	serviceRecordInformer connectivityinformers.ServiceRecordInformer,
 	connClientset connectivityclientset.Interface,
-	namespace string) (*HTTPProxyPublishController, error) {
+) (*HTTPProxyPublishController, error) {
 
 	controller := &HTTPProxyPublishController{
 		scheme:              runtime.NewScheme(),
@@ -85,7 +83,6 @@ func NewHTTPProxyPublishController(nodeinformer v1informers.NodeInformer,
 		connClientset:       connClientset,
 		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "HTTPProxies"),
 		deletedIndexer:      cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{}),
-		namespace:           namespace,
 	}
 
 	if err := ContourV1AddToScheme(controller.scheme); err != nil {
@@ -357,15 +354,22 @@ func (h *HTTPProxyPublishController) convertToServiceRecord(httpProxy *contourv1
 	// set the port annotation which we pass through labels in the Hamlet API.
 	// for now we always assume the client-side port binding is 443 but this may chance in the future
 	annotations[connectivityv1alpha1.ServicePortAnnotation] = "443"
-
 	serviceRecord := &connectivityv1alpha1.ServiceRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      httpProxy.Spec.VirtualHost.Fqdn,
-			Namespace: h.namespace,
+			Namespace: httpProxy.Namespace,
 			Labels: map[string]string{
 				connectivityv1alpha1.ExportLabel: "",
 			},
 			Annotations: annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: contourv1.SchemeGroupVersion.String(),
+					Kind:       "HTTPProxy",
+					UID:        httpProxy.ObjectMeta.UID,
+					Name:       httpProxy.ObjectMeta.Name,
+				},
+			},
 		},
 		Spec: connectivityv1alpha1.ServiceRecordSpec{
 			FQDN:      httpProxy.Spec.VirtualHost.Fqdn,
