@@ -51,16 +51,19 @@ func setupController(c *caddy.Controller) (*CrossCluster, error) {
 
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 30*time.Second)
 	serviceInformer := informerFactory.Core().V1().Services()
+	endpointSliceInformer := informerFactory.Discovery().V1beta1().EndpointSlices()
 
 	dnsRecordsCache := new(servicedns.DNSCache)
 
 	serviceDNSController := servicedns.NewServiceDNSController(serviceInformer, dnsRecordsCache)
+	endpointSliceDNSController := servicedns.NewEndpointSliceDNSController(endpointSliceInformer, dnsRecordsCache)
 
 	stopCh := make(chan struct{})
 	informerFactory.WaitForCacheSync(stopCh)
 	informerFactory.Start(stopCh)
 
 	go serviceDNSController.Run(3, stopCh)
+	go endpointSliceDNSController.Run(3, stopCh)
 
 	c.OnShutdown(func() error {
 		close(stopCh)

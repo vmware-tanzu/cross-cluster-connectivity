@@ -61,24 +61,24 @@ var _ = Describe("ServiceDNS", func() {
 		})
 
 		It("populates the dns cache with the FQDN and ClusterIP from the Service", func() {
-			Eventually(func() (string, error) {
+			Eventually(func() ([]string, error) {
 				cacheEntry := dnsCache.Lookup("some-service.some.domain")
 				if cacheEntry == nil {
-					return "", fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
+					return []string{}, fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
 				}
-				return cacheEntry.IP.String(), nil
-			}, time.Second*5, time.Second).Should(Equal("1.2.3.4"))
+				return ipsToStrings(cacheEntry.IPs), nil
+			}, time.Second*5, time.Second).Should(ConsistOf("1.2.3.4"))
 		})
 
 		When("the service is updated", func() {
 			BeforeEach(func() {
-				Eventually(func() (string, error) {
+				Eventually(func() ([]string, error) {
 					cacheEntry := dnsCache.Lookup("some-service.some.domain")
 					if cacheEntry == nil {
-						return "", fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
+						return []string{}, fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
 					}
-					return cacheEntry.IP.String(), nil
-				}, time.Second*5, time.Second).Should(Equal("1.2.3.4"))
+					return ipsToStrings(cacheEntry.IPs), nil
+				}, time.Second*5, time.Second).Should(ConsistOf("1.2.3.4"))
 			})
 
 			It("updates the dns cache", func() {
@@ -86,13 +86,13 @@ var _ = Describe("ServiceDNS", func() {
 				_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Update(context.Background(), service, metav1.UpdateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				Eventually(func() (string, error) {
+				Eventually(func() ([]string, error) {
 					cacheEntry := dnsCache.Lookup("some-edited-service.some.domain")
 					if cacheEntry == nil {
-						return "", fmt.Errorf("fqdn some-edited-service.some.domain does not exist in dns cache")
+						return []string{}, fmt.Errorf("fqdn some-edited-service.some.domain does not exist in dns cache")
 					}
-					return cacheEntry.IP.String(), nil
-				}, time.Second*5, time.Second).Should(Equal("1.2.3.4"))
+					return ipsToStrings(cacheEntry.IPs), nil
+				}, time.Second*5, time.Second).Should(ConsistOf("1.2.3.4"))
 				Expect(dnsCache.Lookup("some-service.some.domain")).To(BeNil())
 			})
 		})
@@ -116,30 +116,26 @@ var _ = Describe("ServiceDNS", func() {
 			_, err := kubeClientset.CoreV1().Services("cross-cluster-connectivity").Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() (string, error) {
+			Eventually(func() ([]string, error) {
 				cacheEntry := dnsCache.Lookup("some-service.some.domain")
 				if cacheEntry == nil {
-					return "", fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
+					return []string{}, fmt.Errorf("fqdn some-service.some.domain does not exist in dns cache")
 				}
-				return cacheEntry.IP.String(), nil
-			}, time.Second*5, time.Second).Should(Equal("1.2.3.4"))
+				return ipsToStrings(cacheEntry.IPs), nil
+			}, time.Second*5, time.Second).Should(ConsistOf("1.2.3.4"))
 
 			err = kubeClientset.CoreV1().Services("cross-cluster-connectivity").Delete(context.Background(), "some-service", metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("removes the entry from the dns cache", func() {
-			Eventually(func() string {
+			Eventually(func() []string {
 				cacheEntry := dnsCache.Lookup("some-service.some.domain")
 				if cacheEntry == nil {
-					return ""
+					return []string{}
 				}
-				return cacheEntry.IP.String()
+				return ipsToStrings(cacheEntry.IPs)
 			}, time.Second*5, time.Second).Should(BeEmpty())
 		})
 	})
-
-	// FQDN could be nil
-	// Update
-	// Validate FQDN
 })

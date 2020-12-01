@@ -14,6 +14,7 @@ const (
 	ImportedLabel           = "connectivity.tanzu.vmware.com/imported"
 	GlobalVIPAnnotation     = "connectivity.tanzu.vmware.com/vip"
 	FQDNAnnotation          = "connectivity.tanzu.vmware.com/fqdn"
+	DNSHostnameAnnotation   = "connectivity.tanzu.vmware.com/dns-hostname"
 	// ServicePortAnnotation is an annotation used to specify the client-side Service
 	// port binding for a ServiceRecord. This annotation is temporary until hamlet
 	// v1alpha2 supports port mappings.

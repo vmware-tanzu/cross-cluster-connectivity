@@ -5,6 +5,7 @@ package crosscluster_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -35,32 +36,42 @@ var _ = Describe("CrossCluster", func() {
 			dnsCache.Upsert(servicedns.DNSCacheEntry{
 				ServiceKey: "some-namespace/some-service",
 				FQDN:       "some-service.some.domain",
-				IP:         net.ParseIP("1.2.3.4"),
+				IPs: []net.IP{
+					net.ParseIP("1.2.3.4"),
+					net.ParseIP("1.2.3.5"),
+				},
 			})
 
 			dnsCache.Upsert(servicedns.DNSCacheEntry{
 				ServiceKey: "some-namespace/another-service",
 				FQDN:       "another-service.some.domain",
-				IP:         net.ParseIP("2.3.4.5"),
+				IPs: []net.IP{
+					net.ParseIP("2.3.4.5"),
+				},
 			})
 		})
 
-		DescribeTable("returns an appropriate DNS response given an A record dns request", func(fqdn string, expectedIP net.IP) {
+		DescribeTable("returns an appropriate DNS response given an A record dns request", func(fqdn string, expectedIPs ...net.IP) {
 			r := new(dns.Msg)
 			r.SetQuestion(dns.Fqdn(fqdn), dns.TypeA)
 			w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 			dnsPlugin.ServeDNS(context.Background(), w, r)
-			Expect(w.Msg.Answer).To(HaveLen(1))
-			Expect(w.Msg.Answer[0].(*dns.A).Hdr).To(Equal(dns.RR_Header{
-				Name:   dns.Fqdn(fqdn),
-				Rrtype: dns.TypeA,
-				Class:  dns.ClassINET,
-				Ttl:    30,
-			}))
-			Expect(w.Msg.Answer[0].(*dns.A).A).To(Equal(expectedIP))
+
+			var answerIPs []net.IP
+			for i, answer := range w.Msg.Answer {
+				aRecord := answer.(*dns.A)
+				Expect(aRecord.Hdr).To(Equal(dns.RR_Header{
+					Name:   dns.Fqdn(fqdn),
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    30,
+				}), fmt.Sprintf("Mismatch at index %d", i))
+				answerIPs = append(answerIPs, aRecord.A)
+			}
+			Expect(answerIPs).To(ConsistOf(expectedIPs))
 		},
-			Entry("returns an A record with the correct IP for some-service", "some-service.some.domain", net.ParseIP("1.2.3.4").To4()),
+			Entry("returns an A record with the correct IP for some-service", "some-service.some.domain", net.ParseIP("1.2.3.4").To4(), net.ParseIP("1.2.3.5").To4()),
 			Entry("returns an A record with the correct IP for another-service", "another-service.some.domain", net.ParseIP("2.3.4.5").To4()),
 			Entry("handles case-insensitivity", "ANOTHER-SERVICE.some.domain", net.ParseIP("2.3.4.5").To4()),
 		)

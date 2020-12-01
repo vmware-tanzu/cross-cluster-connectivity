@@ -28,7 +28,7 @@ e2e-down:
 test: test-unit test-connectivity
 
 .PHONY: test-full
-test-full: test-unit build-images e2e-down e2e-up test-connectivity
+test-full: test-unit build-images e2e-down e2e-up test-connectivity test-cluster-api-dns
 
 .PHONY: test-unit
 test-unit:
@@ -39,6 +39,12 @@ test-connectivity:
 	CLUSTER_ONE_KUBECONFIG=$(WORKLOAD_CLUSTER_KUBECONFIG) \
 	CLUSTER_TWO_KUBECONFIG=$(SHARED_SERVICE_CLUSTER_KUBECONFIG) \
 	ginkgo -v -p $(PWD)/test/connectivity
+
+.PHONY: test-cluster-api-dns
+test-cluster-api-dns:
+	CLUSTER_ONE_KUBECONFIG=$(WORKLOAD_CLUSTER_KUBECONFIG) \
+	CLUSTER_TWO_KUBECONFIG=$(SHARED_SERVICE_CLUSTER_KUBECONFIG) \
+	ginkgo -v -p $(PWD)/test/clusterapidns
 
 .PHONY: build-images
 build-images: build-connectivity-publisher build-connectivity-binder build-connectivity-registry build-connectivity-dns

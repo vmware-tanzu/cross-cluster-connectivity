@@ -38,11 +38,13 @@ func (c *CrossCluster) Services(ctx context.Context, state request.Request, exac
 		return nil, errNameNotFound
 	}
 
-	services := []msg.Service{
-		{
-			Host: cacheEntry.IP.String(),
+	services := []msg.Service{}
+
+	for _, ip := range cacheEntry.IPs {
+		services = append(services, msg.Service{
+			Host: ip.String(),
 			TTL:  30,
-		},
+		})
 	}
 
 	return services, nil

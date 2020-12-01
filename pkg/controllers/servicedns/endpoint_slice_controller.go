@@ -11,34 +11,35 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
+	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informercorev1 "k8s.io/client-go/informers/core/v1"
+	informerdiscoveryv1beta1 "k8s.io/client-go/informers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
-type ServiceDNSController struct {
+type EndpointSliceDNSController struct {
 	scheme *runtime.Scheme
 
-	serviceInformer informercorev1.ServiceInformer
-	dnsCache        *DNSCache
+	endpointSliceInformer informerdiscoveryv1beta1.EndpointSliceInformer
+	dnsCache              *DNSCache
 
 	workqueue workqueue.RateLimitingInterface
 }
 
-func NewServiceDNSController(serviceInformer informercorev1.ServiceInformer, dnsCache *DNSCache) *ServiceDNSController {
-	controller := &ServiceDNSController{
-		scheme:          runtime.NewScheme(),
-		serviceInformer: serviceInformer,
-		dnsCache:        dnsCache,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Services"),
+func NewEndpointSliceDNSController(endpointSliceInformer informerdiscoveryv1beta1.EndpointSliceInformer, dnsCache *DNSCache) *EndpointSliceDNSController {
+	controller := &EndpointSliceDNSController{
+		scheme:                runtime.NewScheme(),
+		endpointSliceInformer: endpointSliceInformer,
+		dnsCache:              dnsCache,
+		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EndpointSlice"),
 	}
 
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	endpointSliceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueue,
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			controller.enqueue(newObj)
@@ -49,11 +50,11 @@ func NewServiceDNSController(serviceInformer informercorev1.ServiceInformer, dns
 	return controller
 }
 
-func (s *ServiceDNSController) Run(threads int, stopCh <-chan struct{}) error {
+func (s *EndpointSliceDNSController) Run(threads int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer s.workqueue.ShutDown()
 
-	log.Info("Starting ServiceDNS controller")
+	log.Info("Starting EndpointSliceDNS controller")
 	for i := 0; i < threads; i++ {
 		go wait.Until(s.runWorker, time.Second, stopCh)
 	}
@@ -65,12 +66,12 @@ func (s *ServiceDNSController) Run(threads int, stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (s *ServiceDNSController) runWorker() {
+func (s *EndpointSliceDNSController) runWorker() {
 	for s.processNextWorkItem() {
 	}
 }
 
-func (s *ServiceDNSController) processNextWorkItem() bool {
+func (s *EndpointSliceDNSController) processNextWorkItem() bool {
 	obj, shutdown := s.workqueue.Get()
 
 	if shutdown {
@@ -94,7 +95,7 @@ func (s *ServiceDNSController) processNextWorkItem() bool {
 		}
 
 		s.workqueue.Forget(obj)
-		log.Infof("Successfully synced Service '%s'", key)
+		log.Infof("Successfully synced EndpointSlice '%s'", key)
 		return nil
 	}(obj)
 
@@ -106,17 +107,17 @@ func (s *ServiceDNSController) processNextWorkItem() bool {
 	return true
 }
 
-func (s *ServiceDNSController) sync(key string) error {
+func (s *EndpointSliceDNSController) sync(key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
 
-	service, err := s.serviceInformer.Lister().Services(namespace).Get(name)
+	endpointSlice, err := s.endpointSliceInformer.Lister().EndpointSlices(namespace).Get(name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			s.dnsCache.DeleteByServiceKey(key)
+			s.dnsCache.DeleteByEndpointSliceKey(key)
 
 			return nil
 		}
@@ -124,24 +125,39 @@ func (s *ServiceDNSController) sync(key string) error {
 		return err
 	}
 
-	fqdn := service.Annotations[connectivityv1alpha1.FQDNAnnotation]
-
-	clusterIP := net.ParseIP(service.Spec.ClusterIP)
-	if clusterIP == nil {
-		utilruntime.HandleError(fmt.Errorf("invalid cluster ip: %s", service.Spec.ClusterIP))
+	domainName, ok := endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]
+	if !ok {
 		return nil
 	}
 
+	if endpointSlice.AddressType != discoveryv1beta1.AddressTypeIPv4 {
+		log.Warnf("Skipping EndpointSlice '%s' since it is not an IPv4 EndpointSlice", key)
+		return nil
+	}
+
+	ips := []net.IP{}
+	for _, endpoint := range endpointSlice.Endpoints {
+		for _, address := range endpoint.Addresses {
+			ip := net.ParseIP(address)
+			if ip == nil {
+				utilruntime.HandleError(fmt.Errorf("invalid ip: %s", ip))
+				return nil
+			}
+
+			ips = append(ips, ip)
+		}
+	}
+
 	s.dnsCache.Upsert(DNSCacheEntry{
-		ServiceKey: key,
-		FQDN:       fqdn,
-		IP:         clusterIP,
+		EndpointSliceKey: key,
+		FQDN:             domainName,
+		IPs:              ips,
 	})
 
 	return nil
 }
 
-func (s *ServiceDNSController) enqueue(obj interface{}) {
+func (s *EndpointSliceDNSController) enqueue(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -151,7 +167,7 @@ func (s *ServiceDNSController) enqueue(obj interface{}) {
 	s.workqueue.Add(key)
 }
 
-func (s *ServiceDNSController) handleDelete(obj interface{}) {
+func (s *EndpointSliceDNSController) handleDelete(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
