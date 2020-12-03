@@ -48,11 +48,11 @@ clusters, see [INSTALLATION.md](./INSTALLATION.md).
 
 ### Installing on Kind
 
-1. First, we will `git clone` and `cd` into the `cross-cluster-connectivity-api`
+1. First, we will `git clone` and `cd` into the `cross-cluster-connectivity`
    repository.
    ```bash
-   git clone https://github.com/vmware-tanzu/cross-cluster-connectivity-api.git
-   cd cross-cluster-connectivity-api
+   git clone https://github.com/vmware-tanzu/cross-cluster-connectivity.git
+   cd cross-cluster-connectivity
    ```
 
 1. Build the docker images.
@@ -114,8 +114,6 @@ make e2e-down
 
 ## Built With
 
-* [Hamlet](https://github.com/vmware/hamlet) - The API that enables federation
-  between clusters
 * [CoreDNS](https://coredns.io/) - Used to build DNS Server
 
 ## Contributing
