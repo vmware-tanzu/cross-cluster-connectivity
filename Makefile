@@ -1,5 +1,13 @@
 CLUSTER_A_KUBECONFIG ?= $(PWD)/cluster-a.kubeconfig
 
+.PHONY: e2e-up
+e2e-up:
+	bash hack/e2e.sh -u
+
+.PHONY: e2e-down
+e2e-down:
+	bash hack/e2e.sh -d
+
 .PHONY: test-cluster-api-dns
 test-cluster-api-dns:
 	CLUSTER_A_KUBECONFIG=$(CLUSTER_A_KUBECONFIG) \
