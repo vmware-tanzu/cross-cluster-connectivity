@@ -1,3 +1,10 @@
+CLUSTER_A_KUBECONFIG ?= $(PWD)/cluster-a.kubeconfig
+
+.PHONY: test-cluster-api-dns
+test-cluster-api-dns:
+	CLUSTER_A_KUBECONFIG=$(CLUSTER_A_KUBECONFIG) \
+	ginkgo -v -p $(PWD)/test/clusterapidns
+
 .PHONY: addlicense
 addlicense:
 	# requires https://github.com/google/addlicense
