@@ -75,7 +75,7 @@ SCRIPTS_DIR="${ROOT_DIR}/hack"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io/vmware-tanzu/cross-cluster-connectivity}"
 IMAGE_TAG="${IMAGE_TAG:-dev}"
 
-CONNECTIVITY_DNS_IMAGE=${IMAGE_REGISTRY}/connectivity-dns:${IMAGE_TAG}
+DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
 
 CLUSTER_A=cluster-a
 CLUSTER_B=cluster-b
@@ -276,7 +276,7 @@ function create_resource_set_secret() {
 
 function deploy_cluster_resource_set() {
   create_resource_set_secret "connectivity-crds" "manifests/crds"
-  create_resource_set_secret "connectivity-dns" "manifests/connectivity-dns"
+  create_resource_set_secret "dns-server" "manifests/dns-server"
 
   cat <<EOF | kubectl_mgc apply -f -
 apiVersion: addons.cluster.x-k8s.io/v1alpha3
@@ -293,17 +293,17 @@ spec:
   resources:
     - name: connectivity-crds
       kind: Secret
-    - name: connectivity-dns
+    - name: dns-server
       kind: Secret
 EOF
 }
 
 function load_shared_services_cluster_images() {
-  kind load docker-image ${CONNECTIVITY_DNS_IMAGE} --name ${CLUSTER_B}
+  kind load docker-image ${DNS_SERVER_IMAGE} --name ${CLUSTER_B}
 }
 
 function load_workload_cluster_images() {
-  kind load docker-image ${CONNECTIVITY_DNS_IMAGE} --name ${CLUSTER_A}
+  kind load docker-image ${DNS_SERVER_IMAGE} --name ${CLUSTER_A}
 }
 
 function patch_kube_system_coredns() {
@@ -311,7 +311,7 @@ function patch_kube_system_coredns() {
   local connectivity_dns_service_ip="$(kubectl get service \
     --kubeconfig ${kubeconfig} \
 		-n cross-cluster-connectivity \
-		connectivity-dns -o=jsonpath='{.spec.clusterIP}')"
+		dns-server -o=jsonpath='{.spec.clusterIP}')"
 
   kubectl \
     --kubeconfig ${kubeconfig} \
