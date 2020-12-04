@@ -18,7 +18,7 @@ set -o pipefail # Non-zero exit codes in piped commands causes pipeline to fail
 # located.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-export KIND_EXPERIMENTAL_DOCKER_NETWORK=bridge # required for CAPD
+export KIND_EXPERIMENTAL_DOCKER_NETWORK="bridge" # required for CAPD
 
 ################################################################################
 ##                                  usage
@@ -69,7 +69,7 @@ SKIP_CLEANUP_MGMT_CLUSTER="${SKIP_CLEANUP_MGMT_CLUSTER:-}"
 DEFAULT_IP_ADDR="${DEFAULT_IP_ADDR:-}"
 USE_HOST_IP_ADDR="${USE_HOST_IP_ADDR:-}"
 
-ROOT_DIR="$PWD"
+ROOT_DIR="${PWD}"
 SCRIPTS_DIR="${ROOT_DIR}/hack"
 
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io/vmware-tanzu/cross-cluster-connectivity}"
@@ -77,10 +77,10 @@ IMAGE_TAG="${IMAGE_TAG:-dev}"
 
 DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
 
-CLUSTER_A=cluster-a
-CLUSTER_B=cluster-b
-CLUSTER_A_KUBECONFIG=cluster-a.kubeconfig
-CLUSTER_B_KUBECONFIG=cluster-b.kubeconfig
+CLUSTER_A="cluster-a"
+CLUSTER_B="cluster-b"
+CLUSTER_A_KUBECONFIG="cluster-a.kubeconfig"
+CLUSTER_B_KUBECONFIG="cluster-b.kubeconfig"
 
 ################################################################################
 ##                                  require
@@ -196,7 +196,7 @@ EOF
 
 function create_cluster() {
   local simple_cluster_yaml="./hack/kind/simple-cluster.yaml"
-  local clustername=$1
+  local clustername="${1}"
 
   local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
 
@@ -244,9 +244,6 @@ function create_cluster() {
   # Deploy Calico cni into CAPD cluster.
   ${clusterkubectl} apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
 
-  # Deploy cert-manager
-  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
-
   # Wait until every node is in Ready condition.
   for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
     ${clusterkubectl} wait --for=condition=Ready --timeout=300s node/"${node}"
@@ -265,17 +262,16 @@ function create_cluster() {
 }
 
 function create_resource_set_secret() {
-  local name="$1"
-  local file="$2"
+  local name="${1}"
+  local file="${2}"
   kubectl_mgc create secret generic "${name}" \
     -n default \
     --from-file="${file}" \
     --type=addons.cluster.x-k8s.io/resource-set \
-    --dry-run=client --save-config -o yaml | kubectl_mgc apply -f -
+    --dry-run --save-config -o yaml | kubectl_mgc apply -f -
 }
 
 function deploy_cluster_resource_set() {
-  create_resource_set_secret "connectivity-crds" "manifests/crds"
   create_resource_set_secret "dns-server" "manifests/dns-server"
 
   cat <<EOF | kubectl_mgc apply -f -
@@ -291,31 +287,26 @@ spec:
     - key: cross-cluster-connectivity
       operator: Exists
   resources:
-    - name: connectivity-crds
-      kind: Secret
     - name: dns-server
       kind: Secret
 EOF
 }
 
-function load_shared_services_cluster_images() {
-  kind load docker-image ${DNS_SERVER_IMAGE} --name ${CLUSTER_B}
-}
-
-function load_workload_cluster_images() {
-  kind load docker-image ${DNS_SERVER_IMAGE} --name ${CLUSTER_A}
+function load_cluster_images() {
+  kind load docker-image "${DNS_SERVER_IMAGE}" --name "${CLUSTER_A}"
+  kind load docker-image "${DNS_SERVER_IMAGE}" --name "${CLUSTER_B}"
 }
 
 function patch_kube_system_coredns() {
-  local kubeconfig=$1
-  local connectivity_dns_service_ip="$(kubectl get service \
+  local kubeconfig="${1}"
+  local dns_server_service_ip="$(kubectl get service \
     --kubeconfig ${kubeconfig} \
-		-n cross-cluster-connectivity \
-		dns-server -o=jsonpath='{.spec.clusterIP}')"
+    -n capi-dns \
+    dns-server -o=jsonpath='{.spec.clusterIP}')"
 
-  kubectl \
-    --kubeconfig ${kubeconfig} \
-    -n kube-system patch configmap coredns \
+  kubectl patch configmap coredns \
+    --kubeconfig "${kubeconfig}" \
+    -n kube-system \
     --type=strategic --patch="$(
       cat <<EOF
 data:
@@ -339,7 +330,7 @@ data:
         loadbalance
     }
     xcc.test {
-        forward . ${connectivity_dns_service_ip}
+        forward . ${dns_server_service_ip}
         reload
     }
 EOF
@@ -351,27 +342,24 @@ function e2e_up() {
 
   setup_management_cluster
 
-  # Create the shared services cluster
-  create_cluster ${CLUSTER_B}
+  # Create two clusters
+  create_cluster "${CLUSTER_A}"
+  create_cluster "${CLUSTER_B}"
 
   # deploy addons for shared services cluster
   # kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
-
-  # Create the workload cluster
-  create_cluster ${CLUSTER_A}
 
   # deploy addons for workload cluster
   # kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
 
   # Label the clusters so we can install our stuff with ClusterResourceSet
-  # kubectl_mgc -n default label cluster ${CLUSTER_B} cross-cluster-connectivity=true --overwrite
-  # kubectl_mgc -n default label cluster ${CLUSTER_A} cross-cluster-connectivity=true --overwrite
+  kubectl_mgc -n default label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
+  kubectl_mgc -n default label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
 
-  # deploy_cluster_resource_set
-  # load_shared_services_cluster_images
-  # load_workload_cluster_images
+  deploy_cluster_resource_set
+  load_cluster_images
 
-  for cluster in ${CLUSTER_B} ${CLUSTER_A}; do
+  for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     cat <<EOF
 ################################################################################
 cluster artifacts:
@@ -380,8 +368,8 @@ cluster artifacts:
   kubeconfig: ${ROOT_DIR}/${cluster}.kubeconfig
 EOF
 
-  patch_kube_system_coredns ${CLUSTER_A_KUBECONFIG}
-  patch_kube_system_coredns ${CLUSTER_B_KUBECONFIG}
+  patch_kube_system_coredns "${CLUSTER_A_KUBECONFIG}"
+  patch_kube_system_coredns "${CLUSTER_B_KUBECONFIG}"
   done
 }
 
@@ -390,7 +378,7 @@ function e2e_down() {
   if [[ -z "${SKIP_CLEANUP_CAPD_CLUSTERS}" ]]; then
     # our management cluster has to be available to cleanup CAPD
     # clusters.
-    for cluster in ${CLUSTER_B} ${CLUSTER_A}; do
+    for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
       # ignore status
       kind delete cluster --name "${cluster}" ||
         echo "cluster ${cluster} deleted."

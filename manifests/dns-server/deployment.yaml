@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capi-dns
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dns-server
+  namespace: capi-dns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-server
+  namespace: capi-dns
+  labels:
+    app: dns-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dns-server
+  template:
+    metadata:
+      labels:
+        app: dns-server
+    spec:
+      serviceAccountName: dns-server
+      containers:
+      - name: dns-server
+        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/dns-server:dev
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+          readOnly: true
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+      volumes:
+      - name: config-volume
+        configMap:
+          name: dns-server-corefile
+          items:
+          - key: Corefile
+            path: Corefile
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: dns-server
+  namespace: capi-dns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dns-server
+subjects:
+- kind: ServiceAccount
+  name: dns-server
+  namespace: capi-dns
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: dns-server
+  namespace: capi-dns
+rules:
+- apiGroups:
+  - "discovery.k8s.io"
+  resources:
+  - endpointslices
+  verbs:
+  - list
+  - watch
+  - get
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-server
+  namespace: capi-dns
+  labels:
+    app: dns-server
+spec:
+  selector:
+    app: dns-server
+  type: ClusterIP
+  ports:
+  - port: 53
+    targetPort: 53
+    protocol: TCP
+    name: dns-tcp
+  - port: 53
+    targetPort: 53
+    protocol: UDP
+    name: dns
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-server-corefile
+  namespace: capi-dns
+data:
+  Corefile: |
+    xcc.test {
+        log
+        errors
+        health {
+          lameduck 5s
+        }
+        crosscluster
+        ready
+        prometheus :9153
+        cache 30
+        reload
+        loop
+        loadbalance
+        whoami
+    }
