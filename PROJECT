@@ -1,3 +1,7 @@
 domain: connectivity.tanzu.vmware.com
 repo: github.com/vmware-tanzu/cross-cluster-connectivity
+resources:
+- group: connectivity
+  kind: GatewayDNS
+  version: v1alpha1
 version: "2"

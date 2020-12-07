@@ -1,0 +1,18 @@
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: nginx-service-ingress
+  namespace: nginx-test
+  labels:
+    app: nginx
+    connectivity.tanzu.vmware.com/export: ""
+spec:
+  virtualhost:
+    fqdn: nginx.xcc.test
+    tls:
+      secretName: nginx-tls-secret
+  routes:
+    - services:
+        - name: nginx-service
+          port: 80

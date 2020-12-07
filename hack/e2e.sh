@@ -76,6 +76,7 @@ IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io/vmware-tanzu/cross-cluster-connectivit
 IMAGE_TAG="${IMAGE_TAG:-dev}"
 
 DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
+CAPI_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/capi-dns-controller:${IMAGE_TAG}
 
 CLUSTER_A="cluster-a"
 CLUSTER_B="cluster-b"
@@ -191,6 +192,13 @@ EOF
   kubectl_mgc wait deployment/capd-controller-manager \
     -n capd-system \
     --for=condition=Available --timeout=300s
+
+  kind load docker-image "${CAPI_DNS_CONTROLLER_IMAGE}" --name "${KIND_MANAGEMENT_CLUSTER}"
+  kubectl_mgc apply -f "./manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml"
+  kubectl_mgc apply -f "./manifests/capi-dns-controller/deployment.yaml"
+
+  local kubeconfig_path="${ROOT_DIR}/${KIND_MANAGEMENT_CLUSTER}.kubeconfig"
+  kind get kubeconfig --name management > "${kubeconfig_path}"
 }
 
 
@@ -243,6 +251,9 @@ function create_cluster() {
 
   # Deploy Calico cni into CAPD cluster.
   ${clusterkubectl} apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+
+  # Deploy cert-manager
+  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
 
   # Wait until every node is in Ready condition.
   for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
@@ -346,11 +357,11 @@ function e2e_up() {
   create_cluster "${CLUSTER_A}"
   create_cluster "${CLUSTER_B}"
 
-  # deploy addons for cluster-a cluster
-  # kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
+  # deploy addons for cluster-a
+  kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
 
-  # deploy addons for cluster-b cluster
-  # kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
+  # deploy addons for cluster-b
+  kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
 
   # Label the clusters so we can install our stuff with ClusterResourceSet
   kubectl_mgc -n default label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite

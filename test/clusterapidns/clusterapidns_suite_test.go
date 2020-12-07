@@ -1,7 +1,7 @@
 // Copyright (c) 2020 VMware, Inc. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package connectivity_test
+package clusterapidns_test
 
 import (
 	"errors"
@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	kubectlTimeout  = 1 * time.Minute
-	kubectlInterval = 5 * time.Second
+	//TODO: Choose good timeout/interval values
+	kubectlTimeout              = 10 * time.Second
+	kubectlInterval             = 5 * time.Second
+	curlConnectTimeoutInSeconds = "3"
 )
 
 func TestClusterapidns(t *testing.T) {
@@ -40,10 +42,18 @@ func kubectlWithConfig(kubeConfigPath string, args ...string) ([]byte, error) {
 	return output, err
 }
 
+var managementKubeConfig = os.Getenv("MANAGEMENT_KUBECONFIG")
 var clusterAKubeConfig = os.Getenv("CLUSTER_A_KUBECONFIG")
+var clusterBKubeConfig = os.Getenv("CLUSTER_B_KUBECONFIG")
 
 var _ = BeforeSuite(func() {
+	if len(managementKubeConfig) == 0 {
+		Fail("MANAGEMENT_KUBECONFIG not set")
+	}
 	if len(clusterAKubeConfig) == 0 {
 		Fail("CLUSTER_A_KUBECONFIG not set")
+	}
+	if len(clusterBKubeConfig) == 0 {
+		Fail("CLUSTER_B_KUBECONFIG not set")
 	}
 })

@@ -1,0 +1,12 @@
+---
+apiVersion: connectivity.tanzu.vmware.com/v1alpha1
+kind: GatewayDNS
+metadata:
+  name: cluster-a-gateway
+  namespace: e2e-ns
+spec:
+  clusterSelector:
+    matchLabel:
+      hasContour: true
+  service: projectcontour/envoy
+  resolutionType: loadBalancer

@@ -2,8 +2,11 @@ IMAGE_REGISTRY ?= ghcr.io/vmware-tanzu/cross-cluster-connectivity
 IMAGE_TAG ?= dev
 
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)
+CAPI_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/capi-dns-controller:$(IMAGE_TAG)
 
 CLUSTER_A_KUBECONFIG ?= $(PWD)/cluster-a.kubeconfig
+CLUSTER_B_KUBECONFIG ?= $(PWD)/cluster-b.kubeconfig
+MANAGEMENT_KUBECONFIG ?= $(PWD)/management.kubeconfig
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
@@ -32,14 +35,20 @@ test-unit:
 .PHONY: test-cluster-api-dns
 test-cluster-api-dns:
 	CLUSTER_A_KUBECONFIG=$(CLUSTER_A_KUBECONFIG) \
+	CLUSTER_B_KUBECONFIG=$(CLUSTER_B_KUBECONFIG) \
+	MANAGEMENT_KUBECONFIG=$(MANAGEMENT_KUBECONFIG) \
 	ginkgo -v -p $(PWD)/test/clusterapidns
 
 .PHONY: build-images
-build-images: build-dns-server
+build-images: build-dns-server build-capi-dns-controller
 
 .PHONY: build-dns-server
 build-dns-server:
 	docker build -f cmd/dns-server/Dockerfile -t $(DNS_SERVER_IMAGE) .
+
+.PHONY: build-capi-dns-controller
+build-capi-dns-controller:
+	docker build -f cmd/capi-dns-controller/Dockerfile -t $(CAPI_DNS_CONTROLLER_IMAGE) .
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: generate
@@ -49,7 +58,7 @@ generate: controller-gen
 		rbac:roleName=manager-role \
 		webhook \
 		paths="./apis/..." \
-		output:crd:artifacts:config=config/crd/
+		output:crd:artifacts:config=manifests/crds/
 	$(CONTROLLER_GEN) \
 		object:headerFile="hack/boilerplate.go.txt" \
 		paths="./..."
@@ -67,6 +76,18 @@ checklicense:
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.go)
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.sh)
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name Dockerfile)
+
+.PHONY: example-deploy-nginx
+example-deploy-nginx:
+	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/certs.yaml
+	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/nginx.yaml
+	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/exported_http_proxy.yaml
+
+.PHONY: example-curl-nginx
+example-curl-nginx:
+	kubectl --kubeconfig ./cluster-b.kubeconfig run -it --rm --restart=Never \
+		--image=curlimages/curl curl -- \
+		curl -v -k "https://nginx.xcc.test"
 
 # find or download controller-gen
 # download controller-gen if necessary
