@@ -12,9 +12,10 @@ require (
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0 // indirect
 	github.com/miekg/dns v1.1.35
 	github.com/onsi/ginkgo v1.14.1
-	github.com/onsi/gomega v1.10.2
+	github.com/onsi/gomega v1.10.3
 	github.com/openzipkin/zipkin-go v0.2.5 // indirect
 	github.com/prometheus/common v0.15.0
 	github.com/tinylib/msgp v1.1.4 // indirect
@@ -31,6 +32,7 @@ require (
 	k8s.io/client-go v0.19.4
 	k8s.io/klog/v2 v2.4.0 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920 // indirect
+	sigs.k8s.io/cluster-api v0.3.11-0.20201208195136-53bf9665f994
 	sigs.k8s.io/controller-runtime v0.7.0-alpha.8
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
 )
