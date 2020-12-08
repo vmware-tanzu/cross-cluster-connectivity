@@ -346,10 +346,10 @@ function e2e_up() {
   create_cluster "${CLUSTER_A}"
   create_cluster "${CLUSTER_B}"
 
-  # deploy addons for shared services cluster
+  # deploy addons for cluster-a cluster
   # kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
 
-  # deploy addons for workload cluster
+  # deploy addons for cluster-b cluster
   # kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
 
   # Label the clusters so we can install our stuff with ClusterResourceSet
