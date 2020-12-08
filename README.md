@@ -9,6 +9,8 @@ This project is in the middle of a reboot, to simplify the operational model
 and utilize a Cluster API control plane.  We're keeping the old code on the `v1`
 branch.  New development is happening in PRs against `main`.
 
+A high-level tracking issue is [#38](https://github.com/vmware-tanzu/cross-cluster-connectivity/issues/38).
+
 
 ## What?
 
