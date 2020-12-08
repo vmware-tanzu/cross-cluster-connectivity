@@ -14,7 +14,7 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/go-logr/logr"
 	"github.com/miekg/dns"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/controllers/endpointslicedns"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 )
 
 type CrossCluster struct {
