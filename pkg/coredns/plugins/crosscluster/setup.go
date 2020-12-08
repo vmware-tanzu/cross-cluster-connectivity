@@ -12,7 +12,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/prometheus/common/log"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/controllers/endpointslicedns"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 

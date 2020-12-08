@@ -4,7 +4,7 @@
 package main
 
 import (
-	_ "github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/coredns/plugins/crosscluster"
+	_ "github.com/vmware-tanzu/cross-cluster-connectivity/pkg/coredns/plugins/crosscluster"
 
 	// import a selection of CoreDNS plugins
 	_ "github.com/coredns/caddy/onevent"

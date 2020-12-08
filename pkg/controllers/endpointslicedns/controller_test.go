@@ -7,8 +7,8 @@ import (
 	"context"
 	"net"
 
-	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/v2/apis/connectivity/v1alpha1"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/controllers/endpointslicedns"
+	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

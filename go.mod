@@ -1,4 +1,4 @@
-module github.com/vmware-tanzu/cross-cluster-connectivity/v2
+module github.com/vmware-tanzu/cross-cluster-connectivity
 
 go 1.13
 

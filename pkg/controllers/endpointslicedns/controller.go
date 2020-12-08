@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/go-logr/logr"
-	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/v2/apis/connectivity/v1alpha1"
+	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

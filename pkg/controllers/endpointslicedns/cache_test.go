@@ -6,7 +6,7 @@ package endpointslicedns_test
 import (
 	"net"
 
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/controllers/endpointslicedns"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

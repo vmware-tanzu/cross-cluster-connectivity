@@ -11,8 +11,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/miekg/dns"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/controllers/endpointslicedns"
-	"github.com/vmware-tanzu/cross-cluster-connectivity/v2/pkg/coredns/plugins/crosscluster"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
+	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/coredns/plugins/crosscluster"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
