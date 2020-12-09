@@ -77,8 +77,8 @@ it.
 * Have a short subject on the first line and a body. The body can be empty.
 * Use the imperative mood (ie "If applied, this commit will (subject)" should
   make sense).
-* Pull requests target develop. If develop has moved on, you may need to rebase
-  before we can merge.
+* Target the `main` branch in your pull request. If `main` has moved on, you may need to rebase
+  and resolve any conflicts before we can merge.
 * Add any test cases where they make sense.
 * Update any document as applicable.
 * Add license to any new source files
