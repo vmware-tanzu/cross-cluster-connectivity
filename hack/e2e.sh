@@ -143,7 +143,8 @@ function setup_management_cluster() {
   fi
 
   clusterctl init \
-    --kubeconfig-context "kind-${KIND_MANAGEMENT_CLUSTER}"
+    --kubeconfig-context "kind-${KIND_MANAGEMENT_CLUSTER}" \
+    --core "cluster-api:v0.3.11"
 
   # Enable the ClusterResourceSet feature in cluster API
   kubectl_mgc -n capi-webhook-system patch deployment capi-controller-manager \
