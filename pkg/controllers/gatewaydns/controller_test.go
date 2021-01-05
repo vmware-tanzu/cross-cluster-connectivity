@@ -165,12 +165,10 @@ var _ = Describe("Reconcile", func() {
 			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
 			Expect(err).NotTo(HaveOccurred())
 
-			endpointSlice := &discoveryv1beta1.EndpointSlice{}
-			err = clusterClient.Get(context.Background(), types.NamespacedName{
-				Namespace: "capi-dns",
-				Name:      "some-namespace-some-cluster-gateway",
-			}, endpointSlice)
-			Expect(err).To(HaveOccurred())
+			endpointSlices := &discoveryv1beta1.EndpointSliceList{}
+			err = clusterClient.List(context.Background(), endpointSlices)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSlices.Items).To(HaveLen(0))
 		})
 	})
 })
