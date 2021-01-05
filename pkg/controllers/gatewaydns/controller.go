@@ -53,12 +53,12 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	log.Info("Found matching clusters", "total", len(matchingClusters), "matchingClusters", matchingClusters)
 
-	endpointSlices, err := r.extractEndpointSlicesFromClusters(ctx, gatewayDNS, matchingClusters)
+	endpointSlices, err := r.createEndpointSlicesForClusters(ctx, gatewayDNS, matchingClusters)
 	if err != nil {
-		log.Error(err, "Failed to extract endpoint slices from clusters")
+		log.Error(err, "Failed to create endpoint slices for clusters")
 		return ctrl.Result{}, err
 	}
-	log.Info("extracted endpoint slices: ", "endpointSlices", endpointSlices)
+	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
 
 	err = r.writeEndpointSlicesToClusters(ctx, matchingClusters, endpointSlices)
 	if err != nil {
@@ -85,20 +85,22 @@ func (r *GatewayDNSReconciler) listMatchingClusters(ctx context.Context,
 	return matchingClusters.Items, nil
 }
 
-func (r *GatewayDNSReconciler) extractEndpointSlicesFromClusters(ctx context.Context,
+func (r *GatewayDNSReconciler) createEndpointSlicesForClusters(ctx context.Context,
 	gatewayDNS connectivityv1alpha1.GatewayDNS,
 	clusters []clusterv1alpha3.Cluster) ([]discoveryv1beta1.EndpointSlice, error) {
 
-	gatewayDNSSpecService := NewNamespacedNameFromString(gatewayDNS.Spec.Service)
+	gatewayDNSSpecService := newNamespacedNameFromString(gatewayDNS.Spec.Service)
 
 	var endpointSlices []discoveryv1beta1.EndpointSlice
 	for _, cluster := range clusters {
-		services, err := r.extractLoadBalancedServicesFromCluster(ctx, gatewayDNSSpecService, cluster)
+		service, err := r.getLoadBalancerServiceForCluster(ctx, gatewayDNSSpecService, cluster)
 		if err != nil {
 			return nil, err
 		}
-		r.Log.Info("Load Balancer Services: ", "total", len(services), "services", services)
-		endpointSlices = append(endpointSlices, convertServicesToEndpointSlices(services, cluster.ObjectMeta.Name, gatewayDNS.Namespace)...)
+		if service != nil {
+			r.Log.Info("Get Load Balancer Service: ", "cluster", cluster.ClusterName, "service", service)
+			endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(service, cluster.ObjectMeta.Name, gatewayDNS.Namespace))
+		}
 	}
 	return endpointSlices, nil
 }
@@ -126,11 +128,10 @@ func (r *GatewayDNSReconciler) writeEndpointSlicesToClusters(ctx context.Context
 	return nil
 }
 
-func (r *GatewayDNSReconciler) extractLoadBalancedServicesFromCluster(ctx context.Context,
+func (r *GatewayDNSReconciler) getLoadBalancerServiceForCluster(ctx context.Context,
 	serviceNamespacedName types.NamespacedName,
-	cluster clusterv1alpha3.Cluster) ([]corev1.Service, error) {
+	cluster clusterv1alpha3.Cluster) (*corev1.Service, error) {
 
-	var services []corev1.Service
 	clusterClient, err := r.ClientProvider.GetClient(ctx, types.NamespacedName{
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
@@ -147,9 +148,9 @@ func (r *GatewayDNSReconciler) extractLoadBalancedServicesFromCluster(ctx contex
 
 	r.Log.Info("Get Service: ", "cluster", cluster.Name, "serviceNamespacedName", serviceNamespacedName, "service", service)
 	if isLoadBalancerWithExternalIP(service) {
-		services = append(services, service)
+		return &service, nil
 	}
-	return services, nil
+	return nil, nil
 }
 
 func isLoadBalancerWithExternalIP(service corev1.Service) bool {
@@ -162,15 +163,7 @@ func isLoadBalancerWithExternalIP(service corev1.Service) bool {
 	return true
 }
 
-func convertServicesToEndpointSlices(services []corev1.Service, clusterName string, gatewayDNSNamespace string) []discoveryv1beta1.EndpointSlice {
-	var endpointSlices []discoveryv1beta1.EndpointSlice
-	for _, service := range services {
-		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(service, clusterName, gatewayDNSNamespace))
-	}
-	return endpointSlices
-}
-
-func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNSNamespace string) discoveryv1beta1.EndpointSlice {
+func convertServiceToEndpointSlice(service *corev1.Service, clusterName string, gatewayDNSNamespace string) discoveryv1beta1.EndpointSlice {
 	// TODO: xcc.test TLD should be a configuration option
 	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
 	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
@@ -197,7 +190,7 @@ func convertServiceToEndpointSlice(service corev1.Service, clusterName string, g
 	}
 }
 
-func NewNamespacedNameFromString(s string) types.NamespacedName {
+func newNamespacedNameFromString(s string) types.NamespacedName {
 	namespacedName := types.NamespacedName{}
 	result := strings.Split(s, string(types.Separator))
 	if len(result) == 2 {
