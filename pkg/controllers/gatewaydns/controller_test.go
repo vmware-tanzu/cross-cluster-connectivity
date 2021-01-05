@@ -96,27 +96,29 @@ var _ = Describe("Reconcile", func() {
 		err = managementClient.Create(context.Background(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		service := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "some-gateway-service",
-				Namespace: "some-service-namespace",
-			},
-			Spec: corev1.ServiceSpec{
-				Type: corev1.ServiceTypeLoadBalancer,
-				ExternalIPs: []string{
-					"1.2.3.4",
-				},
-			},
-		}
-
-		err = clusterClient.Create(context.Background(), service)
-		Expect(err).NotTo(HaveOccurred())
-
 		req.Name = gatewayDNS.Name
 		req.Namespace = gatewayDNS.Namespace
 	})
 
 	Context("when a gateway dns resource matches a cluster", func() {
+		BeforeEach(func() {
+			service := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-gateway-service",
+					Namespace: "some-service-namespace",
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeLoadBalancer,
+					ExternalIPs: []string{
+						"1.2.3.4",
+					},
+				},
+			}
+
+			err := clusterClient.Create(context.Background(), service)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("creates an endpoint slice", func() {
 			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,6 +135,36 @@ var _ = Describe("Reconcile", func() {
 			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-cluster.some-namespace.clusters.xcc.test"))
 			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.4"}))
+		})
+	})
+
+	Context("when a service has no external IPs", func() {
+		BeforeEach(func() {
+			service := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-gateway-service",
+					Namespace: "some-service-namespace",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:        corev1.ServiceTypeLoadBalancer,
+					ExternalIPs: []string{},
+				},
+			}
+
+			err := clusterClient.Create(context.Background(), service)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("does not create an endpoint slice", func() {
+			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			endpointSlice := &discoveryv1beta1.EndpointSlice{}
+			err = clusterClient.Get(context.Background(), types.NamespacedName{
+				Namespace: "capi-dns",
+				Name:      "some-namespace-some-cluster-gateway",
+			}, endpointSlice)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

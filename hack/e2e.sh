@@ -256,6 +256,16 @@ function create_cluster() {
   # Deploy cert-manager
   ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
 
+  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
+  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
+  # On first install only
+  ${clusterkubectl} create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+
+  # Each cluster needs to give metallb a config with a CIDR for services it exposes.
+  # The clusters are sharing the address space, so they need non-overalpping
+  # ranges assigned to each cluster.
+  ${clusterkubectl} apply -f "${SCRIPTS_DIR}/metallb/config-${clustername}.yaml"
+
   # Wait until every node is in Ready condition.
   for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
     ${clusterkubectl} wait --for=condition=Ready --timeout=300s node/"${node}"

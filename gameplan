@@ -3,9 +3,11 @@ x - Rename to capi-dns-controller
 x - rebase
 x - rename test
 x - Deploy contour in make e2e-up
-  - Make a deployment manifest for capi-gateway-dns
-    - rbac
-  - Deploy capi-gateway-dns in make e2e-up
+x - Make a deployment manifest for capi-dns-controller
+x   - rbac
+x - Deploy capi-dns-controller in make e2e-up
+  - Use metallb in our e2e tests
+    - strict ARP mode?
   - Implement controller
   - create "make" task to run counterfeiter (or any go generate task)
     - consider reusing make generate for this
@@ -41,3 +43,17 @@ spec:
 
 - watch service
   - maybe this can trigger the gatewaydnsrecord reconcile somehow?
+
+
+
+Mon afternoon observations:
+- When a cluster has no services *with external ips*, it should not create an
+  enpoint slice for distribution to the workload clusters.  Right now the
+  controller attempts to create an endpoint slice with a null address. The e2e
+  test is failing because the controller is failing to write these bogus endpoint slices
+  to workload clusters. I failed to write a failing controller test to expose this
+  problem. The test at the bottom of
+  pkg/controllers/gatewaydns/controller_test.go should be failing but is not.
+  The controller has a lot of functionality, and probably should be broken up
+  so it's easier to test.
+

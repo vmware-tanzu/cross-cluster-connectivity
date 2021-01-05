@@ -159,7 +159,7 @@ func convertServicesToEndpointSlices(services []corev1.Service, clusterName stri
 }
 
 func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNSNamespace string) discoveryv1beta1.EndpointSlice {
-
+	// TODO: xcc.test TLD should be a configuration option
 	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
 	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
 
