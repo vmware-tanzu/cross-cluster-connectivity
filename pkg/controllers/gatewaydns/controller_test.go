@@ -109,8 +109,14 @@ var _ = Describe("Reconcile", func() {
 				},
 				Spec: corev1.ServiceSpec{
 					Type: corev1.ServiceTypeLoadBalancer,
-					ExternalIPs: []string{
-						"1.2.3.4",
+				},
+				Status: corev1.ServiceStatus{
+					LoadBalancer: corev1.LoadBalancerStatus{
+						Ingress: []corev1.LoadBalancerIngress{
+							corev1.LoadBalancerIngress{
+								IP: "1.2.3.4",
+							},
+						},
 					},
 				},
 			}
@@ -164,7 +170,7 @@ var _ = Describe("Reconcile", func() {
 				Namespace: "capi-dns",
 				Name:      "some-namespace-some-cluster-gateway",
 			}, endpointSlice)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

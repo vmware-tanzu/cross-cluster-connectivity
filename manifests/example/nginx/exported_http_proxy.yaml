@@ -9,7 +9,7 @@ metadata:
     connectivity.tanzu.vmware.com/export: ""
 spec:
   virtualhost:
-    fqdn: nginx.xcc.test
+    fqdn: nginx.gateway.cluster-a.e2e-ns.clusters.xcc.test
     tls:
       secretName: nginx-tls-secret
   routes:

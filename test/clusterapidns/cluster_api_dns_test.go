@@ -134,6 +134,10 @@ func deployNginx(kubeconfig, certsDir, clusterHeaderValue string) {
 		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "nginx.yaml"))
 	Expect(err).NotTo(HaveOccurred())
 
+	_, err = kubectlWithConfig(kubeconfig,
+		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "exported_http_proxy.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
 	nginxDeploymentPatch, err := ioutil.ReadFile(filepath.Join("fixtures", "nginx-deployment-patch.yaml"))
 	Expect(err).NotTo(HaveOccurred())
 

@@ -51,7 +51,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.Error(err, "Failed to list matching clusters")
 		return ctrl.Result{}, err
 	}
-	log.Info("Found matching clusters", "matchingClusters", matchingClusters)
+	log.Info("Found matching clusters", "total", len(matchingClusters), "matchingClusters", matchingClusters)
 
 	endpointSlices, err := r.extractEndpointSlicesFromClusters(ctx, gatewayDNS, matchingClusters)
 	if err != nil {
@@ -97,6 +97,7 @@ func (r *GatewayDNSReconciler) extractEndpointSlicesFromClusters(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
+		r.Log.Info("Load Balancer Services: ", "total", len(services), "services", services)
 		endpointSlices = append(endpointSlices, convertServicesToEndpointSlices(services, cluster.ObjectMeta.Name, gatewayDNS.Namespace)...)
 	}
 	return endpointSlices, nil
@@ -144,10 +145,21 @@ func (r *GatewayDNSReconciler) extractLoadBalancedServicesFromCluster(ctx contex
 		return nil, err
 	}
 
-	if service.Spec.Type == corev1.ServiceTypeLoadBalancer {
+	r.Log.Info("Get Service: ", "cluster", cluster.Name, "serviceNamespacedName", serviceNamespacedName, "service", service)
+	if isLoadBalancerWithExternalIP(service) {
 		services = append(services, service)
 	}
 	return services, nil
+}
+
+func isLoadBalancerWithExternalIP(service corev1.Service) bool {
+	if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return false
+	}
+	if len(service.Status.LoadBalancer.Ingress) == 0 {
+		return false
+	}
+	return true
 }
 
 func convertServicesToEndpointSlices(services []corev1.Service, clusterName string, gatewayDNSNamespace string) []discoveryv1beta1.EndpointSlice {
@@ -162,6 +174,11 @@ func convertServiceToEndpointSlice(service corev1.Service, clusterName string, g
 	// TODO: xcc.test TLD should be a configuration option
 	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
 	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
+	addresses := []string{}
+
+	for _, ingress := range service.Status.LoadBalancer.Ingress {
+		addresses = append(addresses, ingress.IP)
+	}
 
 	return discoveryv1beta1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
@@ -174,7 +191,7 @@ func convertServiceToEndpointSlice(service corev1.Service, clusterName string, g
 		AddressType: discoveryv1beta1.AddressTypeIPv4,
 		Endpoints: []discoveryv1beta1.Endpoint{
 			{
-				Addresses: service.Spec.ExternalIPs,
+				Addresses: addresses,
 			},
 		},
 	}
