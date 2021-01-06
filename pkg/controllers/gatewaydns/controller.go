@@ -49,7 +49,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	log.Info("Found matching clusters", "total", len(matchingClusters), "matchingClusters", matchingClusters)
 
-	endpointSlices, err := r.EndpointSliceCollector.createEndpointSlicesForClusters(ctx, gatewayDNS, matchingClusters)
+	endpointSlices, err := r.EndpointSliceCollector.CreateEndpointSlicesForClusters(ctx, gatewayDNS, matchingClusters)
 	if err != nil {
 		log.Error(err, "Failed to create endpoint slices for clusters")
 		return ctrl.Result{}, err

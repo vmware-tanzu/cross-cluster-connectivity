@@ -23,7 +23,7 @@ type EndpointSliceCollector struct {
 	ClientProvider clientProvider
 }
 
-func (e *EndpointSliceCollector) createEndpointSlicesForClusters(ctx context.Context,
+func (e *EndpointSliceCollector) CreateEndpointSlicesForClusters(ctx context.Context,
 	gatewayDNS connectivityv1alpha1.GatewayDNS,
 	clusters []clusterv1alpha3.Cluster) ([]discoveryv1beta1.EndpointSlice, error) {
 
