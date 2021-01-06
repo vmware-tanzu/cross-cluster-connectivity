@@ -74,7 +74,7 @@ func main() {
 		ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: client},
 		EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clusterCacheTracker},
 		EndpointSliceCollector: &gatewaydns.EndpointSliceCollector{
-			Log:            reconcilerLog,
+			Log:            reconcilerLog.WithName("EndpointSliceCollector"),
 			ClientProvider: clusterCacheTracker,
 		},
 	}).SetupWithManager(mgr); err != nil {
