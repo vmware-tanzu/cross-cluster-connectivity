@@ -57,11 +57,19 @@ var _ = Describe("Reconcile", func() {
 			zap.WriteTo(GinkgoWriter),
 		))
 
+		log := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
+
 		gatewayDNSReconciler = &gatewaydns.GatewayDNSReconciler{
-			Client:         managementClient,
-			Log:            ctrl.Log.WithName("controllers").WithName("GatewayDNS"),
-			Scheme:         managementClient.Scheme(),
-			ClientProvider: clientProvider,
+			Client:                  managementClient,
+			Log:                     log,
+			Scheme:                  managementClient.Scheme(),
+			ClientProvider:          clientProvider,
+			ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: managementClient},
+			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clientProvider},
+			EndpointSliceCollector: &gatewaydns.EndpointSliceCollector{
+				Log:            log,
+				ClientProvider: clientProvider,
+			},
 		}
 
 		gatewayDNS = &connectivityv1alpha1.GatewayDNS{
