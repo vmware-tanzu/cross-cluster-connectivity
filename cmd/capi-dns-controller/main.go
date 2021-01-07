@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"os"
 
@@ -45,6 +46,12 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
+	namespace, ok := os.LookupEnv("NAMESPACE")
+	if !ok {
+		setupLog.Error(errors.New("NAMESPACE environment variable unset. Must be set to the namespace that should be watched."), "unable to get NAMESPACE environment variable")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -67,13 +74,17 @@ func main() {
 
 	client := mgr.GetClient()
 	if err = (&gatewaydns.GatewayDNSReconciler{
-		Client:                  client,
-		Log:                     reconcilerLog,
-		Scheme:                  mgr.GetScheme(),
-		ClientProvider:          clusterCacheTracker,
-		ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: client},
-		EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clusterCacheTracker},
-		EndpointSliceCollector: &gatewaydns.EndpointSliceCollector{
+		Client:          client,
+		Log:             reconcilerLog,
+		Namespace:       namespace,
+		Scheme:          mgr.GetScheme(),
+		ClientProvider:  clusterCacheTracker,
+		ClusterSearcher: &gatewaydns.ClusterSearcher{Client: client},
+		EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{
+			ClientProvider: clusterCacheTracker,
+			Namespace:      namespace,
+		},
+		ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 			Log:            reconcilerLog.WithName("EndpointSliceCollector"),
 			ClientProvider: clusterCacheTracker,
 		},
