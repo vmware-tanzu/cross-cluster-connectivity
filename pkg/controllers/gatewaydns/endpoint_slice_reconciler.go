@@ -16,7 +16,7 @@ type EndpointSliceReconciler struct {
 	ClientProvider clientProvider
 }
 
-func (e *EndpointSliceReconciler) writeEndpointSlicesToClusters(ctx context.Context,
+func (e *EndpointSliceReconciler) WriteEndpointSlicesToClusters(ctx context.Context,
 	clusters []clusterv1alpha3.Cluster, endpointSlices []discoveryv1beta1.EndpointSlice) error {
 
 	for _, cluster := range clusters {

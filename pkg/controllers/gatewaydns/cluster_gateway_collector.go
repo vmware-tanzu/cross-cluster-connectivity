@@ -5,45 +5,50 @@ package gatewaydns
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
-type EndpointSliceCollector struct {
+type ClusterGatewayCollector struct {
 	Log            logr.Logger
 	ClientProvider clientProvider
 }
 
-func (e *EndpointSliceCollector) CreateEndpointSlicesForClusters(ctx context.Context,
+type ClusterGateway struct {
+	ClusterName string
+	Gateway     corev1.Service
+}
+
+func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 	gatewayDNS connectivityv1alpha1.GatewayDNS,
-	clusters []clusterv1alpha3.Cluster) ([]discoveryv1beta1.EndpointSlice, error) {
+	clusters []clusterv1alpha3.Cluster) ([]ClusterGateway, error) {
 
 	gatewayDNSSpecService := newNamespacedNameFromString(gatewayDNS.Spec.Service)
 
-	var endpointSlices []discoveryv1beta1.EndpointSlice
+	var clusterGateways []ClusterGateway
 	for _, cluster := range clusters {
 		service, err := e.getLoadBalancerServiceForCluster(ctx, gatewayDNSSpecService, cluster)
 		if err != nil {
-			return nil, err
+			return nil, err // not tested
 		}
 		if service != nil {
-			e.Log.Info("Get Load Balancer Service: ", "cluster", cluster.ClusterName, "service", service)
-			endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(service, cluster.ObjectMeta.Name, gatewayDNS.Namespace))
+			clusterGateways = append(clusterGateways, ClusterGateway{
+				ClusterName: cluster.ObjectMeta.Name,
+				Gateway:     *service,
+			})
 		}
 	}
-	return endpointSlices, nil
+	return clusterGateways, nil
 }
 
-func (e *EndpointSliceCollector) getLoadBalancerServiceForCluster(ctx context.Context,
+func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.Context,
 	serviceNamespacedName types.NamespacedName,
 	cluster clusterv1alpha3.Cluster) (*corev1.Service, error) {
 
@@ -52,13 +57,17 @@ func (e *EndpointSliceCollector) getLoadBalancerServiceForCluster(ctx context.Co
 		Name:      cluster.Name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, err // not tested
 	}
 
 	var service corev1.Service
 	err = clusterClient.Get(ctx, serviceNamespacedName, &service)
 	if err != nil {
-		return nil, err
+		statusError, ok := err.(*errors.StatusError)
+		if ok && statusError.ErrStatus.Code == 404 {
+			return nil, nil
+		}
+		return nil, err // not tested
 	}
 
 	e.Log.Info("Get Service: ", "cluster", cluster.Name, "serviceNamespacedName", serviceNamespacedName, "service", service)
@@ -86,31 +95,4 @@ func isLoadBalancerWithExternalIP(service corev1.Service) bool {
 		return false
 	}
 	return true
-}
-
-func convertServiceToEndpointSlice(service *corev1.Service, clusterName string, gatewayDNSNamespace string) discoveryv1beta1.EndpointSlice {
-	// TODO: xcc.test TLD should be a configuration option
-	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
-	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
-	addresses := []string{}
-
-	for _, ingress := range service.Status.LoadBalancer.Ingress {
-		addresses = append(addresses, ingress.IP)
-	}
-
-	return discoveryv1beta1.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "capi-dns",
-			Annotations: map[string]string{
-				connectivityv1alpha1.DNSHostnameAnnotation: hostname,
-			},
-		},
-		AddressType: discoveryv1beta1.AddressTypeIPv4,
-		Endpoints: []discoveryv1beta1.Endpoint{
-			{
-				Addresses: addresses,
-			},
-		},
-	}
 }

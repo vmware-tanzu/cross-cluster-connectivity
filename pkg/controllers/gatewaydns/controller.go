@@ -22,7 +22,7 @@ type GatewayDNSReconciler struct {
 	ClientProvider          clientProvider
 	ClusterSearcher         *ClusterSearcher
 	EndpointSliceReconciler *EndpointSliceReconciler
-	EndpointSliceCollector  *EndpointSliceCollector
+	ClusterGatewayCollector *ClusterGatewayCollector
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . clientProvider
@@ -49,16 +49,18 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	log.Info("Found matching clusters", "total", len(matchingClusters), "matchingClusters", matchingClusters)
 
-	endpointSlices, err := r.EndpointSliceCollector.CreateEndpointSlicesForClusters(ctx, gatewayDNS, matchingClusters)
+	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, matchingClusters)
 	if err != nil {
-		log.Error(err, "Failed to create endpoint slices for clusters")
+		log.Error(err, "Failed to get gateways for clusters")
 		return ctrl.Result{}, err
 	}
+
+	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS.Namespace)
 	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
 
 	// TODO: the matchingClusters list is not correct, the list of clusters should be
 	// all of the clusters that are in the gatewayDNS's namespace.
-	err = r.EndpointSliceReconciler.writeEndpointSlicesToClusters(ctx, matchingClusters, endpointSlices)
+	err = r.EndpointSliceReconciler.WriteEndpointSlicesToClusters(ctx, matchingClusters, endpointSlices)
 	if err != nil {
 		log.Error(err, "Failed to write endpoint slices to clusters")
 		return ctrl.Result{}, err

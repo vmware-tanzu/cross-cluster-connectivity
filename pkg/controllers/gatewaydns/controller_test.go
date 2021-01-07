@@ -66,7 +66,7 @@ var _ = Describe("Reconcile", func() {
 			ClientProvider:          clientProvider,
 			ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: managementClient},
 			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clientProvider},
-			EndpointSliceCollector: &gatewaydns.EndpointSliceCollector{
+			ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 				Log:            log,
 				ClientProvider: clientProvider,
 			},
