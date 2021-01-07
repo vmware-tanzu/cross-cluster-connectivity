@@ -23,6 +23,7 @@ type GatewayDNSReconciler struct {
 	ClusterSearcher         *ClusterSearcher
 	EndpointSliceReconciler *EndpointSliceReconciler
 	ClusterGatewayCollector *ClusterGatewayCollector
+	Namespace               string
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . clientProvider
@@ -55,7 +56,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS.Namespace)
+	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS.Namespace, r.Namespace)
 	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
 
 	// TODO: the matchingClusters list is not correct, the list of clusters should be

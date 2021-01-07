@@ -64,6 +64,7 @@ var _ = Describe("Reconcile", func() {
 			Log:                     log,
 			Scheme:                  managementClient.Scheme(),
 			ClientProvider:          clientProvider,
+			Namespace:               "capi-dns",
 			ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: managementClient},
 			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clientProvider},
 			ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{

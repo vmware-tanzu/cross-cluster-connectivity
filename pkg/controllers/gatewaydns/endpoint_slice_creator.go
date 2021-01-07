@@ -13,15 +13,15 @@ import (
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 )
 
-func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNSNamespace string) []discoveryv1beta1.EndpointSlice {
+func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNSNamespace, controllerNamespace string) []discoveryv1beta1.EndpointSlice {
 	var endpointSlices []discoveryv1beta1.EndpointSlice
 	for _, clusterGateway := range clusterGateways {
-		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNSNamespace))
+		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNSNamespace, controllerNamespace))
 	}
 	return endpointSlices
 }
 
-func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNSNamespace string) discoveryv1beta1.EndpointSlice {
+func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNSNamespace string, controllerNamespace string) discoveryv1beta1.EndpointSlice {
 	// TODO: xcc.test TLD should be a configuration option
 	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
 	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
@@ -34,7 +34,7 @@ func convertServiceToEndpointSlice(service corev1.Service, clusterName string, g
 	return discoveryv1beta1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "capi-dns",
+			Namespace: controllerNamespace,
 			Annotations: map[string]string{
 				connectivityv1alpha1.DNSHostnameAnnotation: hostname,
 			},

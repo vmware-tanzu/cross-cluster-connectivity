@@ -30,6 +30,7 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 		clusterClient1          client.Client
 		endpointSlices          []discoveryv1beta1.EndpointSlice
 		clusters                []clusterv1alpha3.Cluster
+		namespace               string
 	)
 
 	BeforeEach(func() {
@@ -54,14 +55,18 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			}
 			return clusterClient, nil
 		}
+		namespace = "capi-dns"
 
-		endpointSliceReconciler = gatewaydns.EndpointSliceReconciler{ClientProvider: clientProvider}
+		endpointSliceReconciler = gatewaydns.EndpointSliceReconciler{
+			ClientProvider: clientProvider,
+			Namespace:      namespace,
+		}
 
 		endpointSlices = []discoveryv1beta1.EndpointSlice{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "endpoint-slice-1",
-					Namespace: "capi-dns",
+					Namespace: namespace,
 					Annotations: map[string]string{
 						connectivityv1alpha1.DNSHostnameAnnotation: "*.gateway.cluster-name-1.gateway-dns-namespace.xcc.test",
 					},
@@ -76,7 +81,7 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "endpoint-slice-2",
-					Namespace: "capi-dns",
+					Namespace: namespace,
 					Annotations: map[string]string{
 						connectivityv1alpha1.DNSHostnameAnnotation: "*.gateway.cluster-name-2.gateway-dns-namespace.xcc.test",
 					},
@@ -107,8 +112,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 
 	})
 
-	Context("when writing succeeds", func() {
-		JustBeforeEach(func() {
+	Context("when the cluster contains no previous endpoint slices", func() {
+		BeforeEach(func() {
 			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, endpointSlices)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -129,17 +134,154 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 
 		It("creates the endpoint slices on each cluster client", func() {
 			var endpointSliceList discoveryv1beta1.EndpointSliceList
-			err := clusterClient0.List(context.Background(), &endpointSliceList)
-			Expect(err).NotTo(HaveOccurred())
-			actualEndpointSlices := endpointSliceList.Items
-			Expect(actualEndpointSlices[0].Name).To(Equal("endpoint-slice-1"))
-			Expect(actualEndpointSlices[1].Name).To(Equal("endpoint-slice-2"))
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
 
-			err = clusterClient1.List(context.Background(), &endpointSliceList)
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+		})
+	})
+
+	Context("when the cluster already contains a matching endpoint slices", func() {
+		BeforeEach(func() {
+			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, endpointSlices)
 			Expect(err).NotTo(HaveOccurred())
-			actualEndpointSlices = endpointSliceList.Items
-			Expect(actualEndpointSlices[0].Name).To(Equal("endpoint-slice-1"))
-			Expect(actualEndpointSlices[1].Name).To(Equal("endpoint-slice-2"))
+		})
+
+		It("creates only the missting endpoint slices on each cluster client", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+		})
+	})
+
+	Context("when the cluster contains an endpoint slice without a dns hostname annotation", func() {
+		BeforeEach(func() {
+			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
+			copy(existingEndpointSlices, endpointSlices)
+			delete(existingEndpointSlices[1].Annotations, connectivityv1alpha1.DNSHostnameAnnotation)
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			copy(existingEndpointSlices, endpointSlices)
+			delete(existingEndpointSlices[1].Annotations, connectivityv1alpha1.DNSHostnameAnnotation)
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			onlyTheAnnotatedEndpointSlices := endpointSlices[0:1]
+			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, onlyTheAnnotatedEndpointSlices)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("doesn't delete the unannotated endpoint slice", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+		})
+	})
+
+	Context("when the cluster has an endpoint slice that is undesired", func() {
+		BeforeEach(func() {
+			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			onlyTheFirstEndpointSlice := endpointSlices[0:1]
+			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, onlyTheFirstEndpointSlice)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("deletes the undesired endpoint slice", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1")))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1")))
+		})
+	})
+
+	Context("when the cluster has an endpoint slice that has changed", func() {
+		BeforeEach(func() {
+			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+
+			endpointSlices[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = "*.changed"
+			endpointSlices[0].AddressType = discoveryv1beta1.AddressTypeIP
+			endpointSlices[0].Endpoints = []discoveryv1beta1.Endpoint{
+				{
+					Addresses: []string{"1.1.0.3"},
+				},
+			}
+			endpointSlices[0].Ports = []discoveryv1beta1.EndpointPort{
+				{
+					Name: stringPtr("port"),
+				},
+			}
+			onlyTheFirstEndpointSlice := endpointSlices[0:1]
+			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, onlyTheFirstEndpointSlice)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("updates the changed endpoint slice on each cluster client", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.changed"))
+			Expect(endpointSliceList.Items[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIP))
+			Expect(endpointSliceList.Items[0].Endpoints[0].Addresses[0]).To(Equal("1.1.0.3"))
+			Expect(*endpointSliceList.Items[0].Ports[0].Name).To(Equal("port"))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.changed"))
+			Expect(endpointSliceList.Items[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIP))
+			Expect(endpointSliceList.Items[0].Endpoints[0].Addresses[0]).To(Equal("1.1.0.3"))
+			Expect(*endpointSliceList.Items[0].Ports[0].Name).To(Equal("port"))
+		})
+	})
+
+	Context("when there are endpoint slices in other namespaces", func() {
+		BeforeEach(func() {
+			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+			existingEndpointSlices[1].Namespace = "not-capi-dns"
+			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			copy(existingEndpointSlices, endpointSlices)
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
+			existingEndpointSlices[1].Namespace = "not-capi-dns"
+			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
+
+			onlyTheFirstEndpointSlice := endpointSlices[0:1]
+			err := endpointSliceReconciler.WriteEndpointSlicesToClusters(context.Background(), clusters, onlyTheFirstEndpointSlice)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("leaves them alone and does not delete them", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
 		})
 	})
 
@@ -155,3 +297,16 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 		})
 	})
 })
+
+func endpointSliceItemsToName(items []discoveryv1beta1.EndpointSlice) []string {
+	var names []string
+	for _, item := range items {
+		names = append(names, item.Name)
+	}
+
+	return names
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
