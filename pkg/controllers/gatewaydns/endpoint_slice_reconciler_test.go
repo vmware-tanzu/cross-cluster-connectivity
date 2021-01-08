@@ -321,6 +321,42 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 		})
 	})
 
+	Context("when an endpoint slice doesn't have the annotations, but it has a conflicting namespace/name", func() {
+		BeforeEach(func() {
+			endpointSlice := discoveryv1beta1.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "endpoint-slice-1",
+					Namespace: namespace,
+				},
+				AddressType: discoveryv1beta1.AddressTypeIPv6,
+				Endpoints: []discoveryv1beta1.Endpoint{
+					{
+						Addresses: []string{"2.2.0.2"},
+					},
+				},
+				Ports: []discoveryv1beta1.EndpointPort{
+					{
+						Name: stringPtr("port"),
+					},
+				},
+			}
+			Expect(clusterClient0.Create(context.Background(), &endpointSlice)).ToNot(HaveOccurred())
+
+			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("updates it with the desired endpoint slice information", func() {
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-1.gateway-dns-namespace.xcc.test"))
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("some-namespace/some-gateway-dns"))
+			Expect(endpointSliceList.Items[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSliceList.Items[0].Endpoints[0].Addresses[0]).To(Equal("1.1.0.1"))
+			Expect(endpointSliceList.Items[0].Ports).To(HaveLen(0))
+		})
+	})
+
 	Context("when getting a client from the provider errors", func() {
 		BeforeEach(func() {
 			clientProvider.GetClientStub = func(context.Context, types.NamespacedName) (client.Client, error) {
