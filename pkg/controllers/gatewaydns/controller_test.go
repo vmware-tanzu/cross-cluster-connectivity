@@ -32,7 +32,11 @@ var _ = Describe("Reconcile", func() {
 		gatewayClusterClient        client.Client
 		workloadClusterClient       client.Client
 		otherNamespaceClusterClient client.Client
-		clientProvider              *gatewaydnsfakes.FakeClientProvider
+		clusterClients              map[string]client.Client
+
+		scheme *runtime.Scheme
+
+		clientProvider *gatewaydnsfakes.FakeClientProvider
 
 		gatewayDNSReconciler *gatewaydns.GatewayDNSReconciler
 
@@ -45,7 +49,7 @@ var _ = Describe("Reconcile", func() {
 	)
 
 	BeforeEach(func() {
-		scheme := runtime.NewScheme()
+		scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(scheme)
 		_ = connectivityv1alpha1.AddToScheme(scheme)
 		_ = clusterv1alpha3.AddToScheme(scheme)
@@ -56,7 +60,7 @@ var _ = Describe("Reconcile", func() {
 		workloadClusterClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 		otherNamespaceClusterClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 
-		clusterClients := make(map[string]client.Client)
+		clusterClients = make(map[string]client.Client)
 		clusterClients["some-namespace/some-gateway-cluster"] = gatewayClusterClient
 		clusterClients["some-namespace/some-workload-cluster"] = workloadClusterClient
 		clusterClients["some-other-namespace/some-other-cluster"] = otherNamespaceClusterClient
@@ -145,57 +149,55 @@ var _ = Describe("Reconcile", func() {
 		err = managementClient.Create(context.Background(), otherNamespaceCluster)
 		Expect(err).NotTo(HaveOccurred())
 
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "some-gateway-service",
+				Namespace: "some-service-namespace",
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeLoadBalancer,
+			},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: []corev1.LoadBalancerIngress{
+						corev1.LoadBalancerIngress{
+							IP: "1.2.3.4",
+						},
+					},
+				},
+			},
+		}
+
+		err = gatewayClusterClient.Create(context.Background(), service)
+		Expect(err).NotTo(HaveOccurred())
+
+		service = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "some-gateway-service",
+				Namespace: "some-service-namespace",
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeLoadBalancer,
+			},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: []corev1.LoadBalancerIngress{
+						corev1.LoadBalancerIngress{
+							IP: "1.2.3.5",
+						},
+					},
+				},
+			},
+		}
+
+		err = otherNamespaceClusterClient.Create(context.Background(), service)
+		Expect(err).NotTo(HaveOccurred())
+
 		req.Name = gatewayDNS.Name
 		req.Namespace = gatewayDNS.Namespace
 	})
 
 	Context("when a gateway dns resource matches a cluster", func() {
-		BeforeEach(func() {
-			service := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-gateway-service",
-					Namespace: "some-service-namespace",
-				},
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							corev1.LoadBalancerIngress{
-								IP: "1.2.3.4",
-							},
-						},
-					},
-				},
-			}
-
-			err := gatewayClusterClient.Create(context.Background(), service)
-			Expect(err).NotTo(HaveOccurred())
-
-			service = &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-gateway-service",
-					Namespace: "some-service-namespace",
-				},
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							corev1.LoadBalancerIngress{
-								IP: "1.2.3.5",
-							},
-						},
-					},
-				},
-			}
-
-			err = otherNamespaceClusterClient.Create(context.Background(), service)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
 		It("creates an endpoint slice on all clusters in the gateway dns's namespace", func() {
 			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
 			Expect(err).NotTo(HaveOccurred())
@@ -231,31 +233,181 @@ var _ = Describe("Reconcile", func() {
 		})
 	})
 
-	Context("when a service has no external IPs", func() {
+	Context("when a gateway dns is deleted", func() {
 		BeforeEach(func() {
+			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = managementClient.Delete(context.Background(), gatewayDNS)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("deletes the associated endpoint slices", func() {
+			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			err = workloadClusterClient.List(context.Background(), &endpointSliceList)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(0))
+		})
+	})
+
+	Context("when the label selector is changed on the gateway dns", func() {
+		var (
+			anotherGatewayCluster       *clusterv1alpha3.Cluster
+			anotherGatewayClusterClient client.Client
+		)
+
+		BeforeEach(func() {
+			anotherGatewayCluster = &clusterv1alpha3.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-gateway-cluster",
+					Namespace: "some-namespace",
+					Labels: map[string]string{
+						"a-different-gateway-label": "true",
+					},
+				},
+			}
+
+			err := managementClient.Create(context.Background(), anotherGatewayCluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			anotherGatewayClusterClient = fake.NewClientBuilder().WithScheme(scheme).Build()
+			clusterClients["some-namespace/another-gateway-cluster"] = anotherGatewayClusterClient
+
 			service := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "some-gateway-service",
 					Namespace: "some-service-namespace",
 				},
 				Spec: corev1.ServiceSpec{
-					Type:        corev1.ServiceTypeLoadBalancer,
-					ExternalIPs: []string{},
+					Type: corev1.ServiceTypeLoadBalancer,
+				},
+				Status: corev1.ServiceStatus{
+					LoadBalancer: corev1.LoadBalancerStatus{
+						Ingress: []corev1.LoadBalancerIngress{
+							corev1.LoadBalancerIngress{
+								IP: "1.2.3.6",
+							},
+						},
+					},
 				},
 			}
 
-			err := gatewayClusterClient.Create(context.Background(), service)
+			err = anotherGatewayClusterClient.Create(context.Background(), service)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			gatewayDNS.Spec.ClusterSelector.MatchLabels = map[string]string{
+				"a-different-gateway-label": "true",
+			}
+
+			err = managementClient.Update(context.Background(), gatewayDNS)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("does not create an endpoint slice", func() {
+		It("creates an endpoint slice for newly matched clusters and deletes endpoints slices for previously matched clusters", func() {
 			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
 			Expect(err).NotTo(HaveOccurred())
 
-			endpointSlices := &discoveryv1beta1.EndpointSliceList{}
-			err = gatewayClusterClient.List(context.Background(), endpointSlices)
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			err = workloadClusterClient.List(context.Background(), &endpointSliceList)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(endpointSlices.Items).To(HaveLen(0))
+			Expect(endpointSliceList.Items).To(HaveLen(1))
+
+			endpointSlice := endpointSliceList.Items[0]
+			Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
+			Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
+			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
+
+			err = anotherGatewayClusterClient.List(context.Background(), &endpointSliceList)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(1))
+
+			endpointSlice = endpointSliceList.Items[0]
+			Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
+			Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
+			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
+
+			err = gatewayClusterClient.List(context.Background(), &endpointSliceList)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(1))
+
+			endpointSlice = endpointSliceList.Items[0]
+			Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
+			Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
+			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
+		})
+	})
+
+	Context("when the service changes on the gateway dns", func() {
+		BeforeEach(func() {
+			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			service := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "a-different-gateway-service",
+					Namespace: "some-service-namespace",
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeLoadBalancer,
+				},
+				Status: corev1.ServiceStatus{
+					LoadBalancer: corev1.LoadBalancerStatus{
+						Ingress: []corev1.LoadBalancerIngress{
+							corev1.LoadBalancerIngress{
+								IP: "1.2.3.7",
+							},
+						},
+					},
+				},
+			}
+
+			err = gatewayClusterClient.Create(context.Background(), service)
+			Expect(err).NotTo(HaveOccurred())
+
+			gatewayDNS.Spec.Service = "some-service-namespace/a-different-gateway-service"
+
+			err = managementClient.Update(context.Background(), gatewayDNS)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("updates the endpoint slices with the new service ip", func() {
+			_, err := gatewayDNSReconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			err = workloadClusterClient.List(context.Background(), &endpointSliceList)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(1))
+
+			endpointSlice := endpointSliceList.Items[0]
+			Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
+			Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
+			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.7"}))
+
+			err = gatewayClusterClient.List(context.Background(), &endpointSliceList)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(1))
+
+			endpointSlice = endpointSliceList.Items[0]
+			Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
+			Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+			Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
+			Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.7"}))
 		})
 	})
 })

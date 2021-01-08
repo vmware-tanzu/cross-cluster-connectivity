@@ -53,9 +53,9 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 	})
 
 	It("journeys", func() {
-		By("create a GatewayDNS on management cluster referencing Contour on cluster-a")
+		By("create a GatewayDNS on management cluster referencing Contour in dev-team namespace")
 		_, err := kubectlWithConfig(managementKubeConfig,
-			"apply", "-f", filepath.Join("fixtures", "gateway-dns-for-cluster-a-contour.yaml"))
+			"apply", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name resolves on cluster-a")
@@ -76,7 +76,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 		By("deleting the GatewayDNSRecord")
 		_, err = kubectlWithConfig(managementKubeConfig,
-			"delete", "-f", filepath.Join("fixtures", "gateway-dns-for-cluster-a-contour.yaml"))
+			"delete", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name no longer resolves on cluster-a")

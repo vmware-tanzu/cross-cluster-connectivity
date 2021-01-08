@@ -18,7 +18,7 @@ import (
 
 const (
 	//TODO: Choose good timeout/interval values
-	kubectlTimeout              = 10 * time.Second
+	kubectlTimeout              = 60 * time.Second
 	kubectlInterval             = 5 * time.Second
 	curlConnectTimeoutInSeconds = "3"
 )

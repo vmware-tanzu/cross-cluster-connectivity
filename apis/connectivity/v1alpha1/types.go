@@ -4,5 +4,6 @@
 package v1alpha1
 
 const (
-	DNSHostnameAnnotation = "connectivity.tanzu.vmware.com/dns-hostname"
+	DNSHostnameAnnotation   = "connectivity.tanzu.vmware.com/dns-hostname"
+	GatewayDNSRefAnnotation = "connectivity.tanzu.vmware.com/gateway-dns-ref"
 )

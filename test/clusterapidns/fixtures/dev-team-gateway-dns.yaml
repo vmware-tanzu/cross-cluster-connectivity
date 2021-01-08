@@ -2,7 +2,7 @@
 apiVersion: connectivity.tanzu.vmware.com/v1alpha1
 kind: GatewayDNS
 metadata:
-  name: cluster-a-gateway
+  name: dev-team-gateway-dns
   namespace: dev-team
 spec:
   clusterSelector:

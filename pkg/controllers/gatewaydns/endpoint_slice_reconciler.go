@@ -21,8 +21,8 @@ type EndpointSliceReconciler struct {
 	Namespace      string
 }
 
-func (e *EndpointSliceReconciler) WriteEndpointSlicesToClusters(ctx context.Context,
-	clusters []clusterv1alpha3.Cluster, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
+func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.Context,
+	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
 
 	for _, cluster := range clusters {
 		clusterClient, err := e.ClientProvider.GetClient(ctx, types.NamespacedName{
@@ -33,7 +33,7 @@ func (e *EndpointSliceReconciler) WriteEndpointSlicesToClusters(ctx context.Cont
 			return err
 		}
 
-		err = e.convergeCluster(ctx, clusterClient, desiredEndpointSlices)
+		err = e.convergeCluster(ctx, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
 		if err != nil {
 			return err
 		}
@@ -42,8 +42,8 @@ func (e *EndpointSliceReconciler) WriteEndpointSlicesToClusters(ctx context.Cont
 	return nil
 }
 
-func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
-	clusterDiff, err := e.diffCluster(ctx, clusterClient, desiredEndpointSlices)
+func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
+	clusterDiff, err := e.diffCluster(ctx, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ type ClusterDiff struct {
 	changed   []discoveryv1beta1.EndpointSlice
 }
 
-func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) (ClusterDiff, error) {
+func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) (ClusterDiff, error) {
 	existingEndpointSliceList := &discoveryv1beta1.EndpointSliceList{}
 	err := clusterClient.List(ctx, existingEndpointSliceList, client.InNamespace(e.Namespace))
 	if err != nil {
@@ -88,6 +88,11 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, clusterClient
 	existingEndpointSliceMap := make(map[string]discoveryv1beta1.EndpointSlice)
 	for _, item := range existingEndpointSliceList.Items {
 		if _, ok := item.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]; !ok {
+			continue
+		}
+
+		existingGatewayDNSNamespacedName, ok := item.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]
+		if !ok || existingGatewayDNSNamespacedName != gatewayDNSNamespacedName.String() {
 			continue
 		}
 

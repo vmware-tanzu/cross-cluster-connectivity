@@ -7,7 +7,11 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/common/log"
+	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +44,14 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var gatewayDNS connectivityv1alpha1.GatewayDNS
 	if err := r.Client.Get(ctx, req.NamespacedName, &gatewayDNS); err != nil {
+		if k8serrors.IsNotFound(err) {
+			err := r.convergeEndpointsSlicesOnClustersForGatewayDNS(ctx, req.NamespacedName, nil)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			log.Info("Removed all endpoint slices")
+			return ctrl.Result{}, nil
+		}
 		log.Error(err, "Failed to get gatewayDNS with name")
 		return ctrl.Result{}, err
 	}
@@ -57,23 +69,32 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS.Namespace, r.Namespace)
+	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, r.Namespace)
 
-	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
-	err = r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(gatewayDNS.Namespace))
+	err = r.convergeEndpointsSlicesOnClustersForGatewayDNS(ctx, req.NamespacedName, endpointSlices)
 	if err != nil {
-		log.Error(err, "Failed to list clusters in gateway dns namespace")
 		return ctrl.Result{}, err
 	}
-
-	err = r.EndpointSliceReconciler.WriteEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, endpointSlices)
-	if err != nil {
-		log.Error(err, "Failed to write endpoint slices to clusters")
-		return ctrl.Result{}, err
-	}
-	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
+	log.Info("converged endpoint slices: ", "endpointSlices", endpointSlices)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ctx context.Context, namespacedName types.NamespacedName, endpointSlices []discoveryv1beta1.EndpointSlice) error {
+	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
+	err := r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(namespacedName.Namespace))
+	if err != nil {
+		log.Error(err, "Failed to list clusters in gateway dns namespace")
+		return err
+	}
+
+	err = r.EndpointSliceReconciler.ConvergeEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, namespacedName, endpointSlices)
+	if err != nil {
+		log.Error(err, "Failed to converge endpoint slices to clusters")
+		return err
+	}
+
+	return nil
 }
 
 func (r *GatewayDNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
