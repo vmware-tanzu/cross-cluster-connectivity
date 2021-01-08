@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"reflect"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,6 +53,23 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDN
 	for _, endpointSlice := range clusterDiff.missing {
 		err = clusterClient.Create(ctx, &endpointSlice)
 		if err != nil {
+			if k8serrors.IsAlreadyExists(err) {
+				var existingEndpointSlice discoveryv1beta1.EndpointSlice
+				namespacedName := types.NamespacedName{
+					Namespace: endpointSlice.Namespace,
+					Name:      endpointSlice.Name,
+				}
+				err = clusterClient.Get(ctx, namespacedName, &existingEndpointSlice)
+				if err != nil {
+					return err
+				}
+				existingEndpointSlice = merge(endpointSlice, existingEndpointSlice)
+				err = clusterClient.Update(ctx, &existingEndpointSlice)
+				if err != nil {
+					return err
+				}
+				continue
+			}
 			return err
 		}
 	}
@@ -108,11 +127,7 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, gatewayDNSNam
 	for _, item := range desiredEndpointSliceMap {
 		if existingItem, ok := existingEndpointSliceMap[endpointSliceKey(item)]; ok {
 			if !compareEndpointSlices(item, existingItem) {
-				existingItem.Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = item.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]
-				existingItem.AddressType = item.AddressType
-				existingItem.Endpoints = item.Endpoints
-				existingItem.Ports = item.Ports
-
+				existingItem = merge(item, existingItem)
 				clusterDiff.changed = append(clusterDiff.changed, existingItem)
 			}
 		} else {
@@ -131,6 +146,18 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, gatewayDNSNam
 
 func endpointSliceKey(endpointSlice discoveryv1beta1.EndpointSlice) string {
 	return fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name)
+}
+
+func merge(source, dest discoveryv1beta1.EndpointSlice) discoveryv1beta1.EndpointSlice {
+	if dest.Annotations == nil {
+		dest.Annotations = map[string]string{}
+	}
+	dest.Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = source.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]
+	dest.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation] = source.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]
+	dest.AddressType = source.AddressType
+	dest.Endpoints = source.Endpoints
+	dest.Ports = source.Ports
+	return dest
 }
 
 func compareEndpointSlices(a, b discoveryv1beta1.EndpointSlice) bool {
