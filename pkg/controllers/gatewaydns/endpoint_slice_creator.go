@@ -13,18 +13,18 @@ import (
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 )
 
-func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNSNamespace, controllerNamespace string) []discoveryv1beta1.EndpointSlice {
+func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string) []discoveryv1beta1.EndpointSlice {
 	var endpointSlices []discoveryv1beta1.EndpointSlice
 	for _, clusterGateway := range clusterGateways {
-		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNSNamespace, controllerNamespace))
+		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNS, controllerNamespace))
 	}
 	return endpointSlices
 }
 
-func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNSNamespace string, controllerNamespace string) discoveryv1beta1.EndpointSlice {
+func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string) discoveryv1beta1.EndpointSlice {
 	// TODO: xcc.test TLD should be a configuration option
-	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNSNamespace)
-	name := fmt.Sprintf("%s-%s-gateway", gatewayDNSNamespace, clusterName)
+	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNS.Namespace)
+	name := fmt.Sprintf("%s-%s-gateway", gatewayDNS.Namespace, clusterName)
 	addresses := []string{}
 
 	for _, ingress := range service.Status.LoadBalancer.Ingress {
@@ -36,7 +36,8 @@ func convertServiceToEndpointSlice(service corev1.Service, clusterName string, g
 			Name:      name,
 			Namespace: controllerNamespace,
 			Annotations: map[string]string{
-				connectivityv1alpha1.DNSHostnameAnnotation: hostname,
+				connectivityv1alpha1.DNSHostnameAnnotation:   hostname,
+				connectivityv1alpha1.GatewayDNSRefAnnotation: fmt.Sprintf("%s/%s", gatewayDNS.Namespace, gatewayDNS.Name),
 			},
 		},
 		AddressType: discoveryv1beta1.AddressTypeIPv4,

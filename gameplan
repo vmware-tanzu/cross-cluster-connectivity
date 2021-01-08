@@ -8,47 +8,31 @@ x   - rbac
 x - Deploy capi-dns-controller in make e2e-up
 x - Use metallb in our e2e tests
     - strict ARP mode?
-> - Implement controller
-    - extract objects/functions to make smaller parts and improve test coverage
-       - perhaps each private method the Reconcile calls is public method on one or more new objects?
-    - should "writeEndpointSlicesToCluster" write to "nonMatching" clusters too?
-    - reconcile needs to remove endpoint slices (that we manage) when things (like what?) get deleted
+x - Implement controller
+   x - extract objects/functions to make smaller parts and improve test coverage
+   x   - perhaps each private method the Reconcile calls is public method on one or more new objects?
+   x - should "writeEndpointSlicesToCluster" write to "nonMatching" clusters too?
+   x - reconcile needs to remove endpoint slices (that we manage) when things (like what?) get deleted
       - gatewaydns
       - contour/envoy/lb ip
-    - reconcile needs to update endpoint slices (that we manage) when things change like:
+   x - reconcile needs to update endpoint slices (that we manage) when things change like:
       - lb ip address changes
-  - create "make" task to run counterfeiter (or any go generate task)
-    - consider reusing make generate for this
-  - mgmt-cluster namespace tenancy:
+  x - mgmt-cluster namespace tenancy:
     - CAPI-DNS controller only reads from Clusters in the same namespace as the
       GatewayDNS
     - CAPI-DNS controller only writes to Clusters in the same namespace as the
       GatewayDNS
-  - rename cluster-a-gateway to not reference the cluster. It represents all of
-    the clusters in a management namespace.
+- handle delete logic for gateway dns
+- handle update logic for gateway dns
+x - create "make" task to run counterfeiter (or any go generate task)
+  x - consider reusing make generate for this
+x - rename cluster-a-gateway to not reference the cluster. It represents all of
+  the clusters in a management namespace.
+- don't hardcode xcc.test
+- add a third cluster to prove it's not affected in e2e
 - fix/cleanup logging
 
-
-spec:
-- clusterSelector: { ... }
-- service: projectcontour/envoy
----
-- watch gatewaydns (primary reconcile)
-  - filter clusters that match clusterSelector
-    - get secret for cluster
-    - if resolutionType == loadBalancer
-      - get loadbalancer ip using namespace and service in gatewaydnsrecord
-      - else continue
-    - for each cluster
-      - write endpoint slice to cluster
-
 - watch clusters
-
-- watch clusters
-  - if create/update cluster
-    - start a watch for the cluster's service
-  - if delete cluster
-    - stop watch for the cluster's service
-
-- watch service
+- watch services
   - maybe this can trigger the gatewaydnsrecord reconcile somehow?
+
