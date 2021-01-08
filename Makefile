@@ -52,7 +52,7 @@ build-capi-dns-controller:
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: generate
-generate: controller-gen
+generate: controller-gen go-generate
 	$(CONTROLLER_GEN) \
 		$(CRD_OPTIONS) \
 		rbac:roleName=manager-role \
@@ -62,6 +62,10 @@ generate: controller-gen
 	$(CONTROLLER_GEN) \
 		object:headerFile="hack/boilerplate.go.txt" \
 		paths="./..."
+
+.PHONY: go-generate
+go-generate:
+	go generate ./...
 
 .PHONY: addlicense
 addlicense:
