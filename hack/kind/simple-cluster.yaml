@@ -3,13 +3,11 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: DockerCluster
 metadata:
   name: my-cluster
-  namespace: default
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Cluster
 metadata:
   name: my-cluster
-  namespace: default
 spec:
   clusterNetwork:
     services:
@@ -21,13 +19,11 @@ spec:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: DockerCluster
     name: my-cluster
-    namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: DockerMachine
 metadata:
   name: controlplane-0
-  namespace: default
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Machine
@@ -36,7 +32,6 @@ metadata:
     cluster.x-k8s.io/cluster-name: my-cluster
     cluster.x-k8s.io/control-plane: "true"
   name: controlplane-0
-  namespace: default
 spec:
   version: "v1.17.2"
   clusterName: my-cluster
@@ -45,18 +40,15 @@ spec:
       apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
       kind: KubeadmConfig
       name: controlplane-0-config
-      namespace: default
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: DockerMachine
     name: controlplane-0
-    namespace: default
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: KubeadmConfig
 metadata:
   name: controlplane-0-config
-  namespace: default
 spec:
   clusterConfiguration:
     controllerManager:
@@ -71,7 +63,6 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: DockerMachine
 metadata:
   name: worker-0
-  namespace: default
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Machine
@@ -79,7 +70,6 @@ metadata:
   labels:
     cluster.x-k8s.io/cluster-name: my-cluster
   name: worker-0
-  namespace: default
 spec:
   version: "v1.17.2"
   clusterName: my-cluster
@@ -88,18 +78,15 @@ spec:
       apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
       kind: KubeadmConfig
       name: worker-0-config
-      namespace: default
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: DockerMachine
     name: worker-0
-    namespace: default
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: KubeadmConfig
 metadata:
   name: worker-0-config
-  namespace: default
 spec:
   joinConfiguration:
     nodeRegistration:

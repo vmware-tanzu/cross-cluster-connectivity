@@ -26,6 +26,7 @@ x - Use metallb in our e2e tests
       GatewayDNS
   - rename cluster-a-gateway to not reference the cluster. It represents all of
     the clusters in a management namespace.
+- fix/cleanup logging
 
 
 spec:

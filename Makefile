@@ -87,7 +87,7 @@ example-deploy-nginx:
 example-curl-nginx:
 	kubectl --kubeconfig ./cluster-b.kubeconfig run -it --rm --restart=Never \
 		--image=curlimages/curl curl -- \
-		curl -v -k "https://nginx.gateway.cluster-a.e2e-ns.clusters.xcc.test"
+		curl -v -k "https://nginx.gateway.cluster-a.dev-team.clusters.xcc.test"
 
 # find or download controller-gen
 # download controller-gen if necessary
