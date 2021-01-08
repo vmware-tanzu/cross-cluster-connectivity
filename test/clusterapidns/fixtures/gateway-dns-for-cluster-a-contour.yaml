@@ -3,7 +3,7 @@ apiVersion: connectivity.tanzu.vmware.com/v1alpha1
 kind: GatewayDNS
 metadata:
   name: cluster-a-gateway
-  namespace: e2e-ns
+  namespace: dev-team
 spec:
   clusterSelector:
     matchLabel:

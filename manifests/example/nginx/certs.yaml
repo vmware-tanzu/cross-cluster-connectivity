@@ -19,7 +19,7 @@ metadata:
   namespace: nginx-test
 spec:
   dnsNames:
-  - nginx.gateway.cluster-a.e2e-ns.clusters.xcc.test
+  - nginx.gateway.cluster-a.dev-team.clusters.xcc.test
   issuerRef:
     kind: Issuer
     name: nginx-issuer

@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("ClusterAPI DNS Test", func() {
 	var certsDir string
-	var fqdn = "nginx.gateway.cluster-a.e2e-ns.clusters.xcc.test"
+	var fqdn = "nginx.gateway.cluster-a.dev-team.clusters.xcc.test"
 
 	BeforeEach(func() {
 		By("deploy nginx on cluster-a")
@@ -47,7 +47,6 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 	})
 
 	AfterEach(func() {
-		_, _ = kubectlWithConfig(managementKubeConfig, "delete", "namespace", "e2e-ns")
 		_, _ = kubectlWithConfig(clusterAKubeConfig, "delete", "namespace", "nginx-test")
 
 		Expect(os.RemoveAll(certsDir)).To(Succeed())
@@ -55,10 +54,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 	It("journeys", func() {
 		By("create a GatewayDNS on management cluster referencing Contour on cluster-a")
-		_, err := kubectlWithConfig(managementKubeConfig, "create", "namespace", "e2e-ns")
-		Expect(err).NotTo(HaveOccurred())
-
-		_, err = kubectlWithConfig(managementKubeConfig,
+		_, err := kubectlWithConfig(managementKubeConfig,
 			"apply", "-f", filepath.Join("fixtures", "gateway-dns-for-cluster-a-contour.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,33 +40,38 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var gatewayDNS connectivityv1alpha1.GatewayDNS
 	if err := r.Client.Get(ctx, req.NamespacedName, &gatewayDNS); err != nil {
-		log.Error(err, "Failed to get gatewayDNS with name", "namespacedName", req.NamespacedName.String())
+		log.Error(err, "Failed to get gatewayDNS with name")
 		return ctrl.Result{}, err
 	}
 
-	matchingClusters, err := r.ClusterSearcher.ListMatchingClusters(ctx, gatewayDNS.Spec.ClusterSelector)
+	clustersWithEndpoints, err := r.ClusterSearcher.ListMatchingClusters(ctx, gatewayDNS)
 	if err != nil {
 		log.Error(err, "Failed to list matching clusters")
 		return ctrl.Result{}, err
 	}
-	log.Info("Found matching clusters", "total", len(matchingClusters), "matchingClusters", matchingClusters)
+	log.Info("Found matching clusters", "total", len(clustersWithEndpoints), "matchingClusters", clustersWithEndpoints)
 
-	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, matchingClusters)
+	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
 	if err != nil {
 		log.Error(err, "Failed to get gateways for clusters")
 		return ctrl.Result{}, err
 	}
 
 	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS.Namespace, r.Namespace)
-	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
 
-	// TODO: the matchingClusters list is not correct, the list of clusters should be
-	// all of the clusters that are in the gatewayDNS's namespace.
-	err = r.EndpointSliceReconciler.WriteEndpointSlicesToClusters(ctx, matchingClusters, endpointSlices)
+	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
+	err = r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(gatewayDNS.Namespace))
+	if err != nil {
+		log.Error(err, "Failed to list clusters in gateway dns namespace")
+		return ctrl.Result{}, err
+	}
+
+	err = r.EndpointSliceReconciler.WriteEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, endpointSlices)
 	if err != nil {
 		log.Error(err, "Failed to write endpoint slices to clusters")
 		return ctrl.Result{}, err
 	}
+	log.Info("created endpoint slices: ", "endpointSlices", endpointSlices)
 
 	return ctrl.Result{}, nil
 }

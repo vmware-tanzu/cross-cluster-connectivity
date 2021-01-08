@@ -205,7 +205,8 @@ EOF
 
 function create_cluster() {
   local simple_cluster_yaml="./hack/kind/simple-cluster.yaml"
-  local clustername="${1}"
+  local namespace="${1}"
+  local clustername="${2}"
 
   local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
 
@@ -218,13 +219,13 @@ function create_cluster() {
       sed -e 's~my-cluster~'"${clustername}"'~g' \
 	-e 's~controlplane-0~'"${clustername}"'-controlplane-0~g' \
 	-e 's~worker-0~'"${clustername}"'-worker-0~g' |
-      kubectl_mgc apply -f -
-    while ! kubectl_mgc -n default get secret "${clustername}"-kubeconfig; do
+      kubectl_mgc apply -n "${namespace}" -f -
+    while ! kubectl_mgc -n "${namespace}" get secret "${clustername}"-kubeconfig; do
       sleep 5s
     done
   fi
 
-  kubectl_mgc -n default get secret "${clustername}"-kubeconfig -o json | \
+  kubectl_mgc -n "${namespace}" get secret "${clustername}"-kubeconfig -o json | \
     jq -cr '.data.value' | \
     base64d >"${kubeconfig_path}"
 
@@ -271,11 +272,11 @@ function create_cluster() {
   done
 
   # Wait until every machine has ExternalIP in status
-  local machines="$(kubectl_mgc get machine \
+  local machines="$(kubectl_mgc get machine -n "${namespace}" \
     -l "cluster.x-k8s.io/cluster-name=${clustername}" \
     -o json | jq -cr '.items[].metadata.name')"
   for machine in $machines; do
-    while [[ -z "$(kubectl_mgc get machine "${machine}" -o json -o=jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')" ]]; do
+    while [[ -z "$(kubectl_mgc get machine "${machine}" -n "${namespace}" -o json -o=jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')" ]]; do
       sleep 5s;
     done
   done
@@ -283,24 +284,27 @@ function create_cluster() {
 }
 
 function create_resource_set_secret() {
-  local name="${1}"
-  local file="${2}"
+  local namespace="${1}"
+  local name="${2}"
+  local file="${3}"
   kubectl_mgc create secret generic "${name}" \
-    -n default \
+    -n "${namespace}" \
     --from-file="${file}" \
     --type=addons.cluster.x-k8s.io/resource-set \
     --dry-run --save-config -o yaml | kubectl_mgc apply -f -
 }
 
 function deploy_cluster_resource_set() {
-  create_resource_set_secret "dns-server" "manifests/dns-server"
+  local namespace="${1}"
+
+  create_resource_set_secret "${namespace}" "dns-server" "manifests/dns-server"
 
   cat <<EOF | kubectl_mgc apply -f -
 apiVersion: addons.cluster.x-k8s.io/v1alpha3
 kind: ClusterResourceSet
 metadata:
   name: connectivity
-  namespace: default
+  namespace: ${namespace}
 spec:
   strategy: ApplyOnce
   clusterSelector:
@@ -364,8 +368,9 @@ function e2e_up() {
   setup_management_cluster
 
   # Create two clusters
-  create_cluster "${CLUSTER_A}"
-  create_cluster "${CLUSTER_B}"
+  kubectl_mgc create namespace dev-team
+  create_cluster "dev-team" "${CLUSTER_A}"
+  create_cluster "dev-team" "${CLUSTER_B}"
 
   # deploy addons for cluster-a
   kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
@@ -374,10 +379,10 @@ function e2e_up() {
   kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
 
   # Label the clusters so we can install our stuff with ClusterResourceSet
-  kubectl_mgc -n default label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
-  kubectl_mgc -n default label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
 
-  deploy_cluster_resource_set
+  deploy_cluster_resource_set "dev-team"
   load_cluster_images
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
