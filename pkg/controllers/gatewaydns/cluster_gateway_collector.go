@@ -5,6 +5,7 @@ package gatewaydns
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -51,6 +52,7 @@ func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.Context,
 	serviceNamespacedName types.NamespacedName,
 	cluster clusterv1alpha3.Cluster) (*corev1.Service, error) {
+	log := e.Log.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 
 	clusterClient, err := e.ClientProvider.GetClient(ctx, types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -70,10 +72,12 @@ func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.C
 		return nil, err // not tested
 	}
 
-	e.Log.Info("Get Service: ", "cluster", cluster.Name, "serviceNamespacedName", serviceNamespacedName, "service", service)
 	if isLoadBalancerWithExternalIP(service) {
+		log.Info("Found Service", "service", serviceNamespacedName.String(), "externalip", getExternalIPsFromStatus(service))
 		return &service, nil
 	}
+	log.Info("Found no LoadBalancer Service with external ip", "service", serviceNamespacedName.String())
+
 	return nil, nil
 }
 
@@ -95,4 +99,13 @@ func isLoadBalancerWithExternalIP(service corev1.Service) bool {
 		return false
 	}
 	return true
+}
+
+func getExternalIPsFromStatus(service corev1.Service) []string {
+	var addresses []string
+	for _, ingress := range service.Status.LoadBalancer.Ingress {
+		addresses = append(addresses, ingress.IP)
+	}
+
+	return addresses
 }
