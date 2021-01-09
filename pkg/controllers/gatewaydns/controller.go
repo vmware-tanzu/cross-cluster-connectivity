@@ -5,6 +5,7 @@ package gatewaydns
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
@@ -57,12 +58,13 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Searching for clusters", "selector", gatewayDNS.Spec.ClusterSelector, "service", gatewayDNS.Spec.Service)
 	clustersWithEndpoints, err := r.ClusterSearcher.ListMatchingClusters(ctx, gatewayDNS)
 	if err != nil {
 		log.Error(err, "Failed to list matching clusters")
 		return ctrl.Result{}, err
 	}
-	log.Info("Found matching clusters", "total", len(clustersWithEndpoints), "matchingClusters", clustersWithEndpoints)
+	log.Info("Found matching clusters", "total", len(clustersWithEndpoints), "clusters", clustersToNames(clustersWithEndpoints))
 
 	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
 	if err != nil {
@@ -76,7 +78,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	log.Info("converged endpoint slices: ", "endpointSlices", endpointSlices)
+	log.Info("Finished Reconciling")
 
 	return ctrl.Result{}, nil
 }
@@ -102,4 +104,13 @@ func (r *GatewayDNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&connectivityv1alpha1.GatewayDNS{}).
 		Complete(r)
+}
+
+func clustersToNames(clusters []clusterv1alpha3.Cluster) []string {
+	var names []string
+	for _, cluster := range clusters {
+		names = append(names, fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
+	}
+
+	return names
 }

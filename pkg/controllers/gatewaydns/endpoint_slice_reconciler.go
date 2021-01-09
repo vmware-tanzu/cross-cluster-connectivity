@@ -88,6 +88,8 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDN
 		}
 	}
 
+	//TODO: log end state
+
 	return nil
 }
 
