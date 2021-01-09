@@ -83,7 +83,7 @@ var _ = Describe("Endpoint Slice Creator", func() {
 	})
 
 	It("Transforms Cluster Gateways into Endpoint Slices", func() {
-		endpointSlices := gatewaydns.ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, "capi-dns")
+		endpointSlices := gatewaydns.ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, "capi-dns", "xcc.test")
 		Expect(endpointSlices).To(HaveLen(3))
 		Expect(endpointSlices[0].Name).To(Equal("gateway-dns-namespace-foo-gateway"))
 		Expect(endpointSlices[0].Namespace).To(Equal("capi-dns"))

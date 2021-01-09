@@ -29,6 +29,7 @@ type GatewayDNSReconciler struct {
 	EndpointSliceReconciler *EndpointSliceReconciler
 	ClusterGatewayCollector *ClusterGatewayCollector
 	Namespace               string
+	DomainSuffix            string
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . clientProvider
@@ -69,7 +70,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, r.Namespace)
+	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, r.Namespace, r.DomainSuffix)
 
 	err = r.convergeEndpointsSlicesOnClustersForGatewayDNS(ctx, req.NamespacedName, endpointSlices)
 	if err != nil {

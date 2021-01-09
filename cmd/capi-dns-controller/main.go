@@ -52,6 +52,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	domainSuffix, ok := os.LookupEnv("DOMAIN_SUFFIX")
+	if !ok {
+		setupLog.Error(errors.New("DOMAIN_SUFFIX environment variable unset. Sets the domain suffix on generated domain names."), "unable to get DOMAIN_SUFFIX environment variable")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -77,6 +83,7 @@ func main() {
 		Client:          client,
 		Log:             reconcilerLog,
 		Namespace:       namespace,
+		DomainSuffix:    domainSuffix,
 		Scheme:          mgr.GetScheme(),
 		ClientProvider:  clusterCacheTracker,
 		ClusterSearcher: &gatewaydns.ClusterSearcher{Client: client},
