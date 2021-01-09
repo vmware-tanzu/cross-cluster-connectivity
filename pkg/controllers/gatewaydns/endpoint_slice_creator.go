@@ -13,17 +13,16 @@ import (
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 )
 
-func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string) []discoveryv1beta1.EndpointSlice {
+func ConvertGatewaysToEndpointSlices(clusterGateways []ClusterGateway, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string, domainSuffix string) []discoveryv1beta1.EndpointSlice {
 	var endpointSlices []discoveryv1beta1.EndpointSlice
 	for _, clusterGateway := range clusterGateways {
-		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNS, controllerNamespace))
+		endpointSlices = append(endpointSlices, convertServiceToEndpointSlice(clusterGateway.Gateway, clusterGateway.ClusterName, gatewayDNS, controllerNamespace, domainSuffix))
 	}
 	return endpointSlices
 }
 
-func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string) discoveryv1beta1.EndpointSlice {
-	// TODO: xcc.test TLD should be a configuration option
-	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.xcc.test", clusterName, gatewayDNS.Namespace)
+func convertServiceToEndpointSlice(service corev1.Service, clusterName string, gatewayDNS connectivityv1alpha1.GatewayDNS, controllerNamespace string, domainSuffix string) discoveryv1beta1.EndpointSlice {
+	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.%s", clusterName, gatewayDNS.Namespace, domainSuffix)
 	name := fmt.Sprintf("%s-%s-gateway", gatewayDNS.Namespace, clusterName)
 	addresses := []string{}
 
