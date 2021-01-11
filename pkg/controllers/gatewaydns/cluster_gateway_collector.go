@@ -52,7 +52,7 @@ func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.Context,
 	serviceNamespacedName types.NamespacedName,
 	cluster clusterv1alpha3.Cluster) (*corev1.Service, error) {
-	log := e.Log.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
+	log := e.Log.WithValues("Cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 
 	clusterClient, err := e.ClientProvider.GetClient(ctx, types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -73,10 +73,10 @@ func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.C
 	}
 
 	if isLoadBalancerWithExternalIP(service) {
-		log.Info("Found Service", "service", serviceNamespacedName.String(), "externalip", getExternalIPsFromStatus(service))
+		log.Info("Found Service", "Service", serviceNamespacedName.String(), "ExternalIP", getExternalIPsFromStatus(service))
 		return &service, nil
 	}
-	log.Info("Found no LoadBalancer Service with external ip", "service", serviceNamespacedName.String())
+	log.Info("Ignoring Service without type LoadBalancer or without ExternalIP", "Service", serviceNamespacedName.String())
 
 	return nil, nil
 }

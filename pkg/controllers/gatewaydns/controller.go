@@ -42,7 +42,8 @@ type clientProvider interface {
 // +kubebuilder:rbac:groups=connectivity.tanzu.vmware.com,resources=gatewaydns/status,verbs=get;update;patch
 
 func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("gatewaydns", req.NamespacedName)
+	log := r.Log.WithValues("GatewayDNS", req.NamespacedName)
+	log.Info("Start Reconciling")
 
 	var gatewayDNS connectivityv1alpha1.GatewayDNS
 	if err := r.Client.Get(ctx, req.NamespacedName, &gatewayDNS); err != nil {
@@ -51,24 +52,24 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			log.Info("Removed all endpoint slices")
+			log.Info("Finished Reconciling")
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "Failed to get gatewayDNS with name")
+		log.Error(err, "Failed to get GatewayDNS with name")
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Searching for clusters", "selector", gatewayDNS.Spec.ClusterSelector, "service", gatewayDNS.Spec.Service)
+	log.Info("Searching for Clusters", "ClusterSelector", gatewayDNS.Spec.ClusterSelector, "Service", gatewayDNS.Spec.Service)
 	clustersWithEndpoints, err := r.ClusterSearcher.ListMatchingClusters(ctx, gatewayDNS)
 	if err != nil {
-		log.Error(err, "Failed to list matching clusters")
+		log.Error(err, "Failed to list matching Clusters")
 		return ctrl.Result{}, err
 	}
-	log.Info("Found matching clusters", "total", len(clustersWithEndpoints), "clusters", clustersToNames(clustersWithEndpoints))
+	log.Info("Found matching Clusters", "Total", len(clustersWithEndpoints), "Clusters", clustersToNames(clustersWithEndpoints))
 
 	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
 	if err != nil {
-		log.Error(err, "Failed to get gateways for clusters")
+		log.Error(err, "Failed to get gateways for Clusters")
 		return ctrl.Result{}, err
 	}
 

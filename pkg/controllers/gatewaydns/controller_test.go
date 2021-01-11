@@ -82,14 +82,17 @@ var _ = Describe("Reconcile", func() {
 		log := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
 
 		gatewayDNSReconciler = &gatewaydns.GatewayDNSReconciler{
-			Client:                  managementClient,
-			Log:                     log,
-			Scheme:                  managementClient.Scheme(),
-			ClientProvider:          clientProvider,
-			Namespace:               "capi-dns",
-			DomainSuffix:            "xcc.test",
-			ClusterSearcher:         &gatewaydns.ClusterSearcher{Client: managementClient},
-			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{ClientProvider: clientProvider},
+			Client:          managementClient,
+			Log:             log,
+			Scheme:          managementClient.Scheme(),
+			ClientProvider:  clientProvider,
+			Namespace:       "capi-dns",
+			DomainSuffix:    "xcc.test",
+			ClusterSearcher: &gatewaydns.ClusterSearcher{Client: managementClient},
+			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{
+				Log:            log,
+				ClientProvider: clientProvider,
+			},
 			ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 				Log:            log,
 				ClientProvider: clientProvider,

@@ -90,6 +90,7 @@ func main() {
 		EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{
 			ClientProvider: clusterCacheTracker,
 			Namespace:      namespace,
+			Log:            reconcilerLog.WithName("EndpointSliceReconciler"),
 		},
 		ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 			Log:            reconcilerLog.WithName("EndpointSliceCollector"),
