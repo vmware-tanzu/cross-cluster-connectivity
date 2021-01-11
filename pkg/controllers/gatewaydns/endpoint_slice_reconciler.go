@@ -10,6 +10,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/go-logr/logr"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +22,7 @@ import (
 type EndpointSliceReconciler struct {
 	ClientProvider clientProvider
 	Namespace      string
+	Log            logr.Logger
 }
 
 func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.Context,
@@ -35,7 +37,8 @@ func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.C
 			return err
 		}
 
-		err = e.convergeCluster(ctx, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
+		log := e.Log.WithValues("GatewayDNS", gatewayDNSNamespacedName, "Cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
+		err = e.convergeCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
 		if err != nil {
 			return err
 		}
@@ -44,7 +47,7 @@ func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.C
 	return nil
 }
 
-func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
+func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.Logger, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
 	clusterDiff, err := e.diffCluster(ctx, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
 	if err != nil {
 		return err
@@ -68,10 +71,12 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDN
 				if err != nil {
 					return err
 				}
+				log.Info("Updated EndpointSlice", "EndpointSlice", fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name), "Hostname", endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation], "Addresses", flattenEndpoints(endpointSlice.Endpoints))
 				continue
 			}
 			return err
 		}
+		log.Info("Created EndpointSlice", "EndpointSlice", fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name), "Hostname", endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation], "Addresses", flattenEndpoints(endpointSlice.Endpoints))
 	}
 
 	for _, endpointSlice := range clusterDiff.changed {
@@ -79,6 +84,7 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDN
 		if err != nil {
 			return err
 		}
+		log.Info("Updated EndpointSlice", "EndpointSlice", fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name), "Hostname", endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation], "Addresses", flattenEndpoints(endpointSlice.Endpoints))
 	}
 
 	for _, endpointSlice := range clusterDiff.undesired {
@@ -86,9 +92,8 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, gatewayDN
 		if err != nil {
 			return err
 		}
+		log.Info("Deleted EndpointSlice", "EndpointSlice", fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name), "Hostname", endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation], "Addresses", flattenEndpoints(endpointSlice.Endpoints))
 	}
-
-	//TODO: log end state
 
 	return nil
 }
@@ -167,4 +172,12 @@ func compareEndpointSlices(a, b discoveryv1beta1.EndpointSlice) bool {
 		a.AddressType == b.AddressType &&
 		reflect.DeepEqual(a.Endpoints, b.Endpoints) &&
 		reflect.DeepEqual(a.Ports, b.Ports)
+}
+
+func flattenEndpoints(endpoints []discoveryv1beta1.Endpoint) []string {
+	var addresses []string
+	for _, endpoint := range endpoints {
+		addresses = append(addresses, endpoint.Addresses...)
+	}
+	return addresses
 }
