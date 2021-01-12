@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
@@ -37,7 +37,7 @@ func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 	for _, cluster := range clusters {
 		service, err := e.getLoadBalancerServiceForCluster(ctx, gatewayDNSSpecService, cluster)
 		if err != nil {
-			return nil, err // not tested
+			return []ClusterGateway{}, err
 		}
 		if service != nil {
 			clusterGateways = append(clusterGateways, ClusterGateway{
@@ -59,14 +59,14 @@ func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.C
 		Name:      cluster.Name,
 	})
 	if err != nil {
-		return nil, err // not tested
+		return nil, err
 	}
 
 	var service corev1.Service
 	err = clusterClient.Get(ctx, serviceNamespacedName, &service)
 	if err != nil {
-		statusError, ok := err.(*errors.StatusError)
-		if ok && statusError.ErrStatus.Code == 404 {
+		if k8serrors.IsNotFound(err) {
+			log.Error(err, "Expected Service not found", "Service", serviceNamespacedName.String())
 			return nil, nil
 		}
 		return nil, err // not tested

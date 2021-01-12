@@ -5,6 +5,7 @@ package gatewaydns_test
 
 import (
 	"context"
+	"errors"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
@@ -13,6 +14,7 @@ import (
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,13 +28,18 @@ import (
 
 var _ = Describe("Cluster Gateway Collector", func() {
 	var (
-		clusterClient  client.Client
+		clusterClient0 client.Client
+		clusterClient1 client.Client
+		clusterClients map[string]client.Client
 		clientProvider *gatewaydnsfakes.FakeClientProvider
 
-		gatewayDNS     *connectivityv1alpha1.GatewayDNS
-		cluster        *clusterv1alpha3.Cluster
-		clusters       []clusterv1alpha3.Cluster
-		gatewayService *corev1.Service
+		gatewayDNS *connectivityv1alpha1.GatewayDNS
+		cluster0   clusterv1alpha3.Cluster
+		cluster1   clusterv1alpha3.Cluster
+
+		clusters        []clusterv1alpha3.Cluster
+		gatewayService0 *corev1.Service
+		gatewayService1 *corev1.Service
 
 		clusterGatewayCollector *gatewaydns.ClusterGatewayCollector
 	)
@@ -44,10 +51,21 @@ var _ = Describe("Cluster Gateway Collector", func() {
 		_ = clusterv1alpha3.AddToScheme(scheme)
 		_ = discoveryv1beta1.AddToScheme(scheme)
 
-		clusterClient = fake.NewClientBuilder().WithScheme(scheme).Build()
+		clusterClient0 = fake.NewClientBuilder().WithScheme(scheme).Build()
+		clusterClient1 = fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		clusterClients = make(map[string]client.Client)
+		clusterClients["some-namespace/cluster-name-0"] = clusterClient0
+		clusterClients["some-namespace/cluster-name-1"] = clusterClient1
 
 		clientProvider = &gatewaydnsfakes.FakeClientProvider{}
-		clientProvider.GetClientReturns(clusterClient, nil)
+		clientProvider.GetClientStub = func(ctx context.Context, namespacedName types.NamespacedName) (client.Client, error) {
+			clusterClient, ok := clusterClients[namespacedName.String()]
+			if !ok {
+				return nil, errors.New("unexpected namespaced name")
+			}
+			return clusterClient, nil
+		}
 
 		ctrl.SetLogger(zap.New(
 			zap.UseDevMode(true),
@@ -75,19 +93,27 @@ var _ = Describe("Cluster Gateway Collector", func() {
 			Log:            log,
 			ClientProvider: clientProvider,
 		}
-
-		cluster = &clusterv1alpha3.Cluster{
+		cluster0 = clusterv1alpha3.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "some-cluster",
+				Name:      "cluster-name-0",
 				Namespace: "some-namespace",
 				Labels: map[string]string{
 					"some-label": "true",
 				},
 			},
 		}
-		clusters = []clusterv1alpha3.Cluster{*cluster}
+		cluster1 = clusterv1alpha3.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cluster-name-1",
+				Namespace: "some-namespace",
+				Labels: map[string]string{
+					"some-label": "true",
+				},
+			},
+		}
+		clusters = []clusterv1alpha3.Cluster{cluster0, cluster1}
 
-		gatewayService = &corev1.Service{
+		gatewayService0 = &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "some-gateway-service",
 				Namespace: "some-service-namespace",
@@ -105,12 +131,34 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				},
 			},
 		}
+
+		gatewayService1 = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "some-gateway-service",
+				Namespace: "some-service-namespace",
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeLoadBalancer,
+			},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: []corev1.LoadBalancerIngress{
+						corev1.LoadBalancerIngress{
+							IP: "1.2.3.5",
+						},
+					},
+				},
+			},
+		}
 	})
 
 	Describe("GetGatewaysForCluster", func() {
 		Context("when the cluster has a valid gateway", func() {
 			BeforeEach(func() {
-				err := clusterClient.Create(context.Background(), gatewayService)
+				err := clusterClient0.Create(context.Background(), gatewayService0)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = clusterClient1.Create(context.Background(), gatewayService1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("the gateway for the cluster is returned", func() {
@@ -120,17 +168,21 @@ var _ = Describe("Cluster Gateway Collector", func() {
 					clusters,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(gateways).To(HaveLen(1))
-				Expect(gateways[0].ClusterName).To(Equal(cluster.ObjectMeta.Name))
+				Expect(gateways).To(HaveLen(2))
+				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
 				Expect(gateways[0].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
 				Expect(gateways[0].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.4"))
+
+				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+				Expect(gateways[1].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.5"))
 			})
 		})
 
 		Context("when the gateway service name does not match the spec", func() {
 			BeforeEach(func() {
-				gatewayService.ObjectMeta.Name = "some-other-name"
-				err := clusterClient.Create(context.Background(), gatewayService)
+				gatewayService0.ObjectMeta.Name = "some-other-name"
+				err := clusterClient0.Create(context.Background(), gatewayService0)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
@@ -146,8 +198,8 @@ var _ = Describe("Cluster Gateway Collector", func() {
 
 		Context("when the gateway service namespance does not match the spec", func() {
 			BeforeEach(func() {
-				gatewayService.ObjectMeta.Namespace = "some-other-namespace"
-				err := clusterClient.Create(context.Background(), gatewayService)
+				gatewayService0.ObjectMeta.Namespace = "some-other-namespace"
+				err := clusterClient0.Create(context.Background(), gatewayService0)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
@@ -163,8 +215,8 @@ var _ = Describe("Cluster Gateway Collector", func() {
 
 		Context("when the gateway service is not of type load balancer", func() {
 			BeforeEach(func() {
-				gatewayService.Spec.Type = corev1.ServiceTypeClusterIP
-				err := clusterClient.Create(context.Background(), gatewayService)
+				gatewayService0.Spec.Type = corev1.ServiceTypeClusterIP
+				err := clusterClient0.Create(context.Background(), gatewayService0)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
@@ -180,8 +232,8 @@ var _ = Describe("Cluster Gateway Collector", func() {
 
 		Context("when the gateway service status has no IP addresses assigned", func() {
 			BeforeEach(func() {
-				gatewayService.Status = corev1.ServiceStatus{}
-				err := clusterClient.Create(context.Background(), gatewayService)
+				gatewayService0.Status = corev1.ServiceStatus{}
+				err := clusterClient0.Create(context.Background(), gatewayService0)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
@@ -194,6 +246,5 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(gateways).To(HaveLen(0))
 			})
 		})
-
 	})
 })

@@ -26,25 +26,30 @@ type EndpointSliceReconciler struct {
 }
 
 func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.Context,
-	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
+	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) []error {
+	var errors []error
 
 	for _, cluster := range clusters {
+		log := e.Log.WithValues("GatewayDNS", gatewayDNSNamespacedName, "Cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 		clusterClient, err := e.ClientProvider.GetClient(ctx, types.NamespacedName{
 			Namespace: cluster.Namespace,
 			Name:      cluster.Name,
 		})
 		if err != nil {
-			return err
+			log.Error(err, "Failed to get Cluster client")
+			errors = append(errors, err)
+			continue
 		}
 
-		log := e.Log.WithValues("GatewayDNS", gatewayDNSNamespacedName, "Cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 		err = e.convergeCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
 		if err != nil {
-			return err
+			log.Error(err, "Failed to converge EndpointSlices")
+			errors = append(errors, err)
+			continue
 		}
 	}
 
-	return nil
+	return errors
 }
 
 func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.Logger, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {

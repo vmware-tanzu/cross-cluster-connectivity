@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 sigs.k8s.io/controller-runtime/pkg/client.Client
+
 func TestGatewaydns(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GatewayDNS Suite")
