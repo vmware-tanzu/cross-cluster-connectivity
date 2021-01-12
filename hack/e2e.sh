@@ -388,6 +388,10 @@ function e2e_up() {
   # deploy addons for cluster-b
   kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
 
+  # Label the clusters with the hasContour label for the gateway dns resource
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" hasContour=true --overwrite
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" hasContour=true --overwrite
+
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     cat <<EOF
 ################################################################################

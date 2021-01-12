@@ -88,9 +88,10 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		}, 35*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 
 		By("validating that the wildcard DNS name no longer resolves on cluster-b")
+		// CoreDNS is configured to cache records for 30s
 		Eventually(func() string {
 			return curlOnCluster(clusterBKubeConfig, fqdn)
-		}, kubectlTimeout, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
+		}, 35*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 	})
 })
 

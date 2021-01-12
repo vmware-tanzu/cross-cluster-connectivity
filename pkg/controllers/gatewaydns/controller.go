@@ -12,11 +12,16 @@ import (
 	"github.com/prometheus/common/log"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 )
@@ -104,7 +109,43 @@ func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ct
 func (r *GatewayDNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&connectivityv1alpha1.GatewayDNS{}).
+		Watches(
+			&source.Kind{Type: &clusterv1alpha3.Cluster{}},
+			handler.EnqueueRequestsFromMapFunc(r.ClusterToGatewayDNS),
+		).
 		Complete(r)
+}
+
+func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.Request {
+	var gatewayDNSList connectivityv1alpha1.GatewayDNSList
+	err := r.Client.List(
+		context.Background(),
+		&gatewayDNSList,
+		client.InNamespace(o.GetNamespace()),
+	)
+	if err != nil {
+		return nil
+	}
+
+	matchingGatewayDNS := []reconcile.Request{}
+	clusterLabels := labels.Set(o.GetLabels())
+
+	for _, gatewayDNS := range gatewayDNSList.Items {
+		selector, err := metav1.LabelSelectorAsSelector(&gatewayDNS.Spec.ClusterSelector)
+		if err != nil {
+			return nil
+		}
+		if selector.Matches(clusterLabels) {
+			matchingGatewayDNS = append(matchingGatewayDNS, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      gatewayDNS.Name,
+					Namespace: gatewayDNS.Namespace,
+				},
+			})
+		}
+	}
+
+	return matchingGatewayDNS
 }
 
 func clustersToNames(clusters []clusterv1alpha3.Cluster) []string {
