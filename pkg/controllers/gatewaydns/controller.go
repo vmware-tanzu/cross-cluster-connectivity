@@ -5,6 +5,7 @@ package gatewaydns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -92,10 +93,9 @@ func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ct
 		return err
 	}
 
-	err = r.EndpointSliceReconciler.ConvergeEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, namespacedName, endpointSlices)
-	if err != nil {
-		log.Error(err, "Failed to converge endpoint slices to clusters")
-		return err
+	errs := r.EndpointSliceReconciler.ConvergeEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, namespacedName, endpointSlices)
+	if len(errs) > 0 {
+		return errors.New("Failed to converge EndpointSlices")
 	}
 
 	return nil

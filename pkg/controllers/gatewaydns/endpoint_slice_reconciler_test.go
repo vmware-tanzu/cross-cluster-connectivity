@@ -30,6 +30,7 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 		clientProvider           *gatewaydnsfakes.FakeClientProvider
 		clusterClient0           client.Client
 		clusterClient1           client.Client
+		clusterClients           map[string]client.Client
 		gatewayDNSNamespacedName types.NamespacedName
 		endpointSlices           []discoveryv1beta1.EndpointSlice
 		clusters                 []clusterv1alpha3.Cluster
@@ -46,7 +47,7 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 		clusterClient0 = fake.NewClientBuilder().WithScheme(scheme).Build()
 		clusterClient1 = fake.NewClientBuilder().WithScheme(scheme).Build()
 
-		clusterClients := make(map[string]client.Client)
+		clusterClients = make(map[string]client.Client)
 		clusterClients["cluster-namespace-0/cluster-name-0"] = clusterClient0
 		clusterClients["cluster-namespace-1/cluster-name-1"] = clusterClient1
 
@@ -132,8 +133,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 
 	Context("when the cluster contains no previous endpoint slices", func() {
 		BeforeEach(func() {
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
-			Expect(err).ToNot(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("retrieves clients from the client provider", func() {
@@ -167,8 +168,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("creates only the missting endpoint slices on each cluster client", func() {
@@ -193,8 +194,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			onlyTheAnnotatedEndpointSlices := endpointSlices[0:1]
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheAnnotatedEndpointSlices)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheAnnotatedEndpointSlices)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("doesn't delete the unannotated endpoint slice", func() {
@@ -219,8 +220,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			onlyTheFirstEndpointSlice := endpointSlices[0:1]
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("deletes the undesired endpoint slice", func() {
@@ -255,8 +256,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 				},
 			}
 			onlyTheFirstEndpointSlice := endpointSlices[0:1]
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("updates the changed endpoint slice on each cluster client", func() {
@@ -289,8 +290,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			onlyTheFirstEndpointSlice := endpointSlices[0:1]
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("leaves them alone and does not delete them", func() {
@@ -317,8 +318,8 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			onlyTheFirstEndpointSlice := endpointSlices[0:1]
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, onlyTheFirstEndpointSlice)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("leaves them alone and does not delete them", func() {
@@ -352,13 +353,35 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			}
 			Expect(clusterClient0.Create(context.Background(), &endpointSlice)).ToNot(HaveOccurred())
 
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
-			Expect(err).NotTo(HaveOccurred())
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("updates it with the desired endpoint slice information", func() {
 			var endpointSliceList discoveryv1beta1.EndpointSliceList
 			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-1.gateway-dns-namespace.xcc.test"))
+			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("some-namespace/some-gateway-dns"))
+			Expect(endpointSliceList.Items[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+			Expect(endpointSliceList.Items[0].Endpoints[0].Addresses[0]).To(Equal("1.1.0.1"))
+			Expect(endpointSliceList.Items[0].Ports).To(HaveLen(0))
+		})
+	})
+
+	Context("when updating a cluster's endpoint slices errors", func() {
+		var fakeClusterClient *gatewaydnsfakes.FakeClient
+		BeforeEach(func() {
+			fakeClusterClient = &gatewaydnsfakes.FakeClient{}
+			fakeClusterClient.CreateReturns(errors.New("something bad happened"))
+
+			clusterClients["cluster-namespace-0/cluster-name-0"] = fakeClusterClient
+		})
+		It("continues onto the next cluster", func() {
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(ConsistOf(errors.New("something bad happened")))
+
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
 			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-1.gateway-dns-namespace.xcc.test"))
 			Expect(endpointSliceList.Items[0].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("some-namespace/some-gateway-dns"))
 			Expect(endpointSliceList.Items[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
@@ -373,9 +396,10 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 				return nil, errors.New("oopa")
 			}
 		})
-		It("returns the error", func() {
-			err := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
-			Expect(err).To(MatchError("oopa"))
+		It("continues onto the next cluster", func() {
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(ConsistOf(errors.New("oopa"), errors.New("oopa")))
+			Expect(clientProvider.GetClientCallCount()).To(Equal(2))
 		})
 	})
 })

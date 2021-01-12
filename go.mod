@@ -8,11 +8,9 @@ require (
 	github.com/coredns/coredns v1.8.0
 	github.com/go-logr/logr v0.3.0
 	github.com/google/go-cmp v0.5.3 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/miekg/dns v1.1.35
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.3
@@ -24,9 +22,11 @@ require (
 	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58 // indirect
 	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
 	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/tools v0.0.0-20201110032815-ae45d7cf37a9 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20201119123407-9b1e624d6bc4 // indirect
 	google.golang.org/grpc v1.33.2 // indirect
+	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v0.19.4
