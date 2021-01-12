@@ -372,18 +372,21 @@ function e2e_up() {
   create_cluster "dev-team" "${CLUSTER_A}"
   create_cluster "dev-team" "${CLUSTER_B}"
 
+  # Label the clusters so we can install our stuff with ClusterResourceSet
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
+  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
+
+  load_cluster_images
+  deploy_cluster_resource_set "dev-team"
+
+  patch_kube_system_coredns "${CLUSTER_A_KUBECONFIG}"
+  patch_kube_system_coredns "${CLUSTER_B_KUBECONFIG}"
+
   # deploy addons for cluster-a
   kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
 
   # deploy addons for cluster-b
   kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
-
-  # Label the clusters so we can install our stuff with ClusterResourceSet
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
-
-  deploy_cluster_resource_set "dev-team"
-  load_cluster_images
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     cat <<EOF
@@ -393,9 +396,6 @@ cluster artifacts:
   manifest: ${ROOT_DIR}/${cluster}.yaml
   kubeconfig: ${ROOT_DIR}/${cluster}.kubeconfig
 EOF
-
-  patch_kube_system_coredns "${CLUSTER_A_KUBECONFIG}"
-  patch_kube_system_coredns "${CLUSTER_B_KUBECONFIG}"
   done
 }
 

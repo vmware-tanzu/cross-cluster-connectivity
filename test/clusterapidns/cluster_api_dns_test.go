@@ -48,6 +48,8 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 	AfterEach(func() {
 		_, _ = kubectlWithConfig(clusterAKubeConfig, "delete", "namespace", "nginx-test")
+		_, _ = kubectlWithConfig(managementKubeConfig,
+			"delete", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
 
 		Expect(os.RemoveAll(certsDir)).To(Succeed())
 	})
@@ -61,7 +63,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		By("validating that the wildcard DNS name resolves on cluster-a")
 		Eventually(func() string {
 			return curlOnCluster(clusterAKubeConfig, fqdn)
-		}, kubectlTimeout, kubectlInterval).Should(And(
+		}, 120*time.Second, kubectlInterval).Should(And(
 			ContainSubstring("HTTP/2 200"),
 			ContainSubstring("x-cluster: cluster-a"),
 		))
@@ -69,7 +71,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		By("validating that the wildcard DNS name resolves on cluster-b")
 		Eventually(func() string {
 			return curlOnCluster(clusterBKubeConfig, fqdn)
-		}, kubectlTimeout, kubectlInterval).Should(And(
+		}, 120*time.Second, kubectlInterval).Should(And(
 			ContainSubstring("HTTP/2 200"),
 			ContainSubstring("x-cluster: cluster-a"),
 		))
@@ -80,9 +82,10 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name no longer resolves on cluster-a")
+		// CoreDNS is configured to cache records for 30s
 		Eventually(func() string {
 			return curlOnCluster(clusterAKubeConfig, fqdn)
-		}, kubectlTimeout, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
+		}, 35*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 
 		By("validating that the wildcard DNS name no longer resolves on cluster-b")
 		Eventually(func() string {

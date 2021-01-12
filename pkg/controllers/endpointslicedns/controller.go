@@ -33,7 +33,9 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	var endpointSlice discoveryv1beta1.EndpointSlice
 	if err := r.Client.Get(ctx, req.NamespacedName, &endpointSlice); err != nil {
 		if k8serrors.IsNotFound(err) {
+			entry := r.RecordsCache.LookupByResourceKey(req.String())
 			r.RecordsCache.DeleteByResourceKey(req.String())
+			log.WithValues("dns-hostname", entry.FQDN).Info("Successfully deleted")
 			return ctrl.Result{}, nil
 		} else {
 			log.Error(err, "Failed to get")
