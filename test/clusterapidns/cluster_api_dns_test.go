@@ -42,6 +42,10 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		err = ioutil.WriteFile(filepath.Join(certsDir, "key.pem"), key, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
+		By("ensuring contour is deployed")
+		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
+		Expect(err).NotTo(HaveOccurred())
+
 		By("deploying nginx to cluster-a")
 		deployNginx(clusterAKubeConfig, certsDir, "cluster-a")
 	})
@@ -49,7 +53,10 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 	AfterEach(func() {
 		_, _ = kubectlWithConfig(clusterAKubeConfig, "delete", "namespace", "nginx-test")
 		_, _ = kubectlWithConfig(managementKubeConfig,
-			"delete", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
+			"delete", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
+
+		By("restoring contour on cluster-a")
+		_, _ = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
 
 		Expect(os.RemoveAll(certsDir)).To(Succeed())
 	})
@@ -57,7 +64,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 	It("journeys", func() {
 		By("create a GatewayDNS on management cluster referencing Contour in dev-team namespace")
 		_, err := kubectlWithConfig(managementKubeConfig,
-			"apply", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
+			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name resolves on cluster-a")
@@ -78,7 +85,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 		By("deleting the GatewayDNSRecord")
 		_, err = kubectlWithConfig(managementKubeConfig,
-			"delete", "-f", filepath.Join("fixtures", "dev-team-gateway-dns.yaml"))
+			"delete", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name no longer resolves on cluster-a")
@@ -92,6 +99,43 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		Eventually(func() string {
 			return curlOnCluster(clusterBKubeConfig, fqdn)
 		}, 35*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
+	})
+
+	It("monitors workload clusters for service changes", func() {
+		By("create a GatewayDNS on management cluster referencing Contour in dev-team namespace")
+		_, err := kubectlWithConfig(managementKubeConfig,
+			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		By("validating that the wildcard DNS name resolves on cluster-a")
+		Eventually(func() string {
+			return curlOnCluster(clusterAKubeConfig, fqdn)
+		}, 120*time.Second, kubectlInterval).Should(And(
+			ContainSubstring("HTTP/2 200"),
+			ContainSubstring("x-cluster: cluster-a"),
+		))
+
+		By("deleting the service on cluster a")
+		_, err = kubectlWithConfig(clusterAKubeConfig, "-n", "projectcontour", "delete", "service", "envoy")
+		Expect(err).NotTo(HaveOccurred())
+
+		By("validating that the wildcard DNS name no longer resolves on cluster-a")
+		// CoreDNS is configured to cache records for 30s + polling defaults to 30s
+		Eventually(func() string {
+			return curlOnCluster(clusterAKubeConfig, fqdn)
+		}, 65*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
+
+		By("restoring contour on cluster-a")
+		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
+		Expect(err).NotTo(HaveOccurred())
+
+		By("validating that the wildcard DNS name resolves on cluster-a")
+		Eventually(func() string {
+			return curlOnCluster(clusterAKubeConfig, fqdn)
+		}, 120*time.Second, kubectlInterval).Should(And(
+			ContainSubstring("HTTP/2 200"),
+			ContainSubstring("x-cluster: cluster-a"),
+		))
 	})
 })
 
@@ -135,7 +179,7 @@ func deployNginx(kubeconfig, certsDir, clusterHeaderValue string) {
 	Expect(err).NotTo(HaveOccurred())
 
 	_, err = kubectlWithConfig(kubeconfig,
-		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "exported_http_proxy.yaml"))
+		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "httpproxy.yaml"))
 	Expect(err).NotTo(HaveOccurred())
 
 	nginxDeploymentPatch, err := ioutil.ReadFile(filepath.Join("fixtures", "nginx-deployment-patch.yaml"))

@@ -6,6 +6,8 @@ package gatewaydns_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
@@ -20,6 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -96,6 +99,7 @@ var _ = Describe("Controller", func() {
 				Log:            log,
 				ClientProvider: clientProvider,
 			},
+			PollingInterval: time.Millisecond,
 		}
 	})
 
@@ -525,6 +529,73 @@ var _ = Describe("Controller", func() {
 			Expect(requests).To(ConsistOf(
 				reconcile.Request{types.NamespacedName{Name: "another-gateway-dns", Namespace: "some-namespace"}},
 				reconcile.Request{types.NamespacedName{Name: "some-gateway-dns", Namespace: "some-namespace"}},
+			))
+		})
+	})
+
+	Describe("PollGatewayDNS", func() {
+		var (
+			differentNamespaceGatewayDNS *connectivityv1alpha1.GatewayDNS
+		)
+
+		BeforeEach(func() {
+			gatewayDNS = &connectivityv1alpha1.GatewayDNS{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-gateway-dns",
+					Namespace: "some-namespace",
+				},
+				Spec: connectivityv1alpha1.GatewayDNSSpec{
+					ClusterSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"cluster-with-gateway": "true",
+						},
+					},
+					Service:        "some-service-namespace/some-gateway-service",
+					ResolutionType: connectivityv1alpha1.ResolutionTypeLoadBalancer,
+				},
+			}
+
+			err := managementClient.Create(context.Background(), gatewayDNS)
+			Expect(err).NotTo(HaveOccurred())
+
+			differentNamespaceGatewayDNS = &connectivityv1alpha1.GatewayDNS{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-gateway-dns",
+					Namespace: "some-other-namespace",
+				},
+				Spec: connectivityv1alpha1.GatewayDNSSpec{
+					ClusterSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"cluster-with-gateway": "true",
+						},
+					},
+					Service:        "some-service-namespace/another-gateway-service",
+					ResolutionType: connectivityv1alpha1.ResolutionTypeLoadBalancer,
+				},
+			}
+
+			err = managementClient.Create(context.Background(), differentNamespaceGatewayDNS)
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		It("periodically emits events containing GatewayDNS resources", func() {
+			pollEventsCh := gatewayDNSReconciler.PollGatewayDNS()
+
+			receivedEvents := []event.GenericEvent{}
+
+			for i := 0; i < 10; i++ {
+				var pollEvent event.GenericEvent
+				Eventually(pollEventsCh).Should(Receive(&pollEvent))
+				receivedEvents = append(receivedEvents, pollEvent)
+			}
+
+			getNamespacedNameFromEvent := func(e event.GenericEvent) string {
+				return fmt.Sprintf("%s/%s", e.Object.GetNamespace(), e.Object.GetName())
+			}
+			Expect(receivedEvents).To(ContainElements(
+				WithTransform(getNamespacedNameFromEvent, Equal("some-namespace/some-gateway-dns")),
+				WithTransform(getNamespacedNameFromEvent, Equal("some-other-namespace/another-gateway-dns")),
 			))
 		})
 	})
