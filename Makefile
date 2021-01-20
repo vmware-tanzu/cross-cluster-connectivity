@@ -4,9 +4,12 @@ IMAGE_TAG ?= dev
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)
 CAPI_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/capi-dns-controller:$(IMAGE_TAG)
 
-CLUSTER_A_KUBECONFIG ?= $(PWD)/cluster-a.kubeconfig
-CLUSTER_B_KUBECONFIG ?= $(PWD)/cluster-b.kubeconfig
-MANAGEMENT_KUBECONFIG ?= $(PWD)/management.kubeconfig
+CLUSTER_A := "cluster-a"
+CLUSTER_B := "cluster-b"
+MANAGEMENT := "management"
+CLUSTER_A_KUBECONFIG ?= $(PWD)/$(CLUSTER_A).kubeconfig
+CLUSTER_B_KUBECONFIG ?= $(PWD)/$(CLUSTER_B).kubeconfig
+MANAGEMENT_KUBECONFIG ?= $(PWD)/$(MANAGEMENT).kubeconfig
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
@@ -50,6 +53,33 @@ build-dns-server:
 build-capi-dns-controller:
 	docker build -f cmd/capi-dns-controller/Dockerfile -t $(CAPI_DNS_CONTROLLER_IMAGE) .
 
+.PHONY: e2e-load-images
+e2e-load-images: e2e-load-dns-server-image e2e-load-capi-dns-controller-image
+
+.PHONY: e2e-load-dns-server-image
+e2e-load-dns-server-image:
+	kind load docker-image $(DNS_SERVER_IMAGE) --name $(CLUSTER_A)
+	kind load docker-image $(DNS_SERVER_IMAGE) --name $(CLUSTER_B)
+	kubectl --kubeconfig $(CLUSTER_A_KUBECONFIG) get pod \
+		-n capi-dns \
+		-l app=dns-server \
+		-o jsonpath={.items[0].metadata.name} \
+		| xargs -n1 kubectl --kubeconfig $(CLUSTER_A_KUBECONFIG) -n capi-dns delete pod
+	kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) get pod \
+		-n capi-dns \
+		-l app=dns-server \
+		-o jsonpath={.items[0].metadata.name} \
+		| xargs -n1 kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) -n capi-dns delete pod
+
+.PHONY: e2e-load-capi-dns-controller-image
+e2e-load-capi-dns-controller-image:
+	kind load docker-image $(CAPI_DNS_CONTROLLER_IMAGE) --name $(MANAGEMENT)
+	kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) get pod \
+		-n capi-dns \
+		-l app=capi-dns-controller \
+		-o jsonpath={.items[0].metadata.name} \
+		| xargs -n1 kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) -n capi-dns delete pod
+
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: generate
 generate: controller-gen go-generate
@@ -81,11 +111,15 @@ checklicense:
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name *.sh)
 	addlicense -check -f ./hack/license.txt $(shell find . -path ./hack/tools/vendor -prune -false -o -name Dockerfile)
 
+.PHONY: example-apply-gateway-dns
+example-apply-gateway-dns:
+	kubectl --kubeconfig ./management.kubeconfig apply -f ./manifests/example/dev-team-gateway-dns.yaml
+
 .PHONY: example-deploy-nginx
-example-deploy-nginx:
+example-deploy-nginx: example-apply-gateway-dns
 	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/certs.yaml
 	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/nginx.yaml
-	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/exported_http_proxy.yaml
+	kubectl --kubeconfig ./cluster-a.kubeconfig apply -f ./manifests/example/nginx/httpproxy.yaml
 
 .PHONY: example-curl-nginx
 example-curl-nginx:

@@ -6,7 +6,6 @@ metadata:
   namespace: nginx-test
   labels:
     app: nginx
-    connectivity.tanzu.vmware.com/export: ""
 spec:
   virtualhost:
     fqdn: nginx.gateway.cluster-a.dev-team.clusters.xcc.test
