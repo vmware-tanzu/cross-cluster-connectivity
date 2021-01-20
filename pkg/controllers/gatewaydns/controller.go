@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
@@ -16,9 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -37,6 +40,9 @@ type GatewayDNSReconciler struct {
 	ClusterGatewayCollector *ClusterGatewayCollector
 	Namespace               string
 	DomainSuffix            string
+
+	// PollingInterval defaults to 30 seconds if not provided
+	PollingInterval time.Duration
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . clientProvider
@@ -107,13 +113,59 @@ func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ct
 }
 
 func (r *GatewayDNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pollEventsCh := r.PollGatewayDNS()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&connectivityv1alpha1.GatewayDNS{}).
+		Watches(
+			&source.Channel{
+				Source: pollEventsCh,
+			},
+			handler.Funcs{
+				GenericFunc: func(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      e.Object.GetName(),
+						Namespace: e.Object.GetNamespace(),
+					}})
+				},
+			},
+		).
 		Watches(
 			&source.Kind{Type: &clusterv1alpha3.Cluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.ClusterToGatewayDNS),
 		).
 		Complete(r)
+}
+
+func (r *GatewayDNSReconciler) PollGatewayDNS() <-chan event.GenericEvent {
+	log := r.Log.WithName("Poll")
+	pollEventsCh := make(chan event.GenericEvent)
+
+	pollingInterval := r.PollingInterval
+	if pollingInterval == 0 {
+		pollingInterval = 30 * time.Second
+	}
+	log.Info("Start", "PollingInterval", pollingInterval)
+
+	go func() {
+		for {
+			<-time.After(pollingInterval)
+			var gatewayDNSList connectivityv1alpha1.GatewayDNSList
+			err := r.Client.List(context.Background(), &gatewayDNSList)
+			if err != nil {
+				log.Error(err, "Failed to list GatewayDNS")
+				continue
+			}
+
+			for _, gatewayDNS := range gatewayDNSList.Items {
+				gatewayDNSCopy := gatewayDNS
+				pollEventsCh <- event.GenericEvent{
+					Object: &gatewayDNSCopy,
+				}
+			}
+		}
+	}()
+
+	return pollEventsCh
 }
 
 func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.Request {

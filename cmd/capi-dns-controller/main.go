@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -58,6 +59,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	var gatewayDNSPollingIntervalDuration time.Duration
+	gatewayDNSPollingInterval, ok := os.LookupEnv("GATEWAY_DNS_POLLING_INTERVAL")
+	if ok {
+		var err error
+		gatewayDNSPollingIntervalDuration, err = time.ParseDuration(gatewayDNSPollingInterval)
+		if err != nil {
+			setupLog.Error(err, "GATEWAY_DNS_POLLING_INTERVAL environment variable malformed.")
+			os.Exit(1)
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -84,6 +96,7 @@ func main() {
 		Log:             reconcilerLog,
 		Namespace:       namespace,
 		DomainSuffix:    domainSuffix,
+		PollingInterval: gatewayDNSPollingIntervalDuration,
 		Scheme:          mgr.GetScheme(),
 		ClientProvider:  clusterCacheTracker,
 		ClusterSearcher: &gatewaydns.ClusterSearcher{Client: client},

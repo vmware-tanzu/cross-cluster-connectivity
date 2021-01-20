@@ -33,14 +33,14 @@ test-full: test-unit build-images e2e-down e2e-up test-cluster-api-dns
 
 .PHONY: test-unit
 test-unit:
-	ginkgo -race -r $(PWD)/pkg
+	ginkgo -race -p -r $(PWD)/pkg
 
 .PHONY: test-cluster-api-dns
 test-cluster-api-dns:
 	CLUSTER_A_KUBECONFIG=$(CLUSTER_A_KUBECONFIG) \
 	CLUSTER_B_KUBECONFIG=$(CLUSTER_B_KUBECONFIG) \
 	MANAGEMENT_KUBECONFIG=$(MANAGEMENT_KUBECONFIG) \
-	ginkgo -v -p $(PWD)/test/clusterapidns
+	ginkgo -v $(PWD)/test/clusterapidns
 
 .PHONY: build-images
 build-images: build-dns-server build-capi-dns-controller
