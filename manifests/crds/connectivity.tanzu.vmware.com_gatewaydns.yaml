@@ -8,6 +8,16 @@ metadata:
   creationTimestamp: null
   name: gatewaydns.connectivity.tanzu.vmware.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.resolutionType
+    name: Resolution Type
+    type: string
+  - JSONPath: .spec.service
+    name: Service
+    type: string
+  - JSONPath: .spec.clusterSelector
+    name: Cluster Selector
+    type: string
   group: connectivity.tanzu.vmware.com
   names:
     kind: GatewayDNS
@@ -15,6 +25,7 @@ spec:
     plural: gatewaydns
     singular: gatewaydns
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: GatewayDNS is the Schema for the gatewaydns API
