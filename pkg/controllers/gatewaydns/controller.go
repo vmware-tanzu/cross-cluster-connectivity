@@ -169,6 +169,7 @@ func (r *GatewayDNSReconciler) PollGatewayDNS() <-chan event.GenericEvent {
 }
 
 func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.Request {
+	log := r.Log.WithName("ClusterToGatewayDNS")
 	var gatewayDNSList connectivityv1alpha1.GatewayDNSList
 	err := r.Client.List(
 		context.Background(),
@@ -176,6 +177,7 @@ func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.
 		client.InNamespace(o.GetNamespace()),
 	)
 	if err != nil {
+		log.Error(err, "Failed to list GatewayDNS")
 		return nil
 	}
 
@@ -185,7 +187,8 @@ func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.
 	for _, gatewayDNS := range gatewayDNSList.Items {
 		selector, err := metav1.LabelSelectorAsSelector(&gatewayDNS.Spec.ClusterSelector)
 		if err != nil {
-			return nil
+			log.Error(err, "Encountered invalid Selector as LabelSelector", "GatewayDNS", fmt.Sprintf("%s/%s", gatewayDNS.Namespace, gatewayDNS.Name))
+			continue
 		}
 		if selector.Matches(clusterLabels) {
 			matchingGatewayDNS = append(matchingGatewayDNS, reconcile.Request{
