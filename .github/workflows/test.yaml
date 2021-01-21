@@ -38,4 +38,17 @@ jobs:
         env:
           VERSION: 0.30.0
       - run: make e2e-up
-      - run: make test-cluster-api-dns
+      - name: Run e2e tests
+        run: |
+          set +e
+          make test-cluster-api-dns
+          exitStatus=$?
+          if [ ${exitStatus} -ne 0 ]; then
+            for entry in "${PWD}"/test/clusterapidns/logs/**/*; do
+              echo "::group::${entry}"
+              cat "${entry}"
+              echo "::endgroup::"
+            done
+          fi
+          set -e
+          exit ${exitStatus}
