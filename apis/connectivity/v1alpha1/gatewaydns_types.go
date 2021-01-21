@@ -37,6 +37,9 @@ type GatewayDNSStatus struct {
 // +kubebuilder:object:root=true
 
 // GatewayDNS is the Schema for the gatewaydns API
+// +kubebuilder:printcolumn:name="Resolution Type",type=string,JSONPath=`.spec.resolutionType`
+// +kubebuilder:printcolumn:name="Service",type=string,JSONPath=`.spec.service`
+// +kubebuilder:printcolumn:name="Cluster Selector",type=string,JSONPath=`.spec.clusterSelector`
 type GatewayDNS struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
