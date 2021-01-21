@@ -61,6 +61,47 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		Expect(os.RemoveAll(certsDir)).To(Succeed())
 	})
 
+	JustAfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			cwd, err := os.Getwd()
+			Expect(err).NotTo(HaveOccurred())
+			logsDir := filepath.Join(cwd, "logs")
+			Expect(os.MkdirAll(logsDir, 0755)).To(Succeed())
+			tempDir, err := ioutil.TempDir(logsDir, CurrentGinkgoTestDescription().TestText)
+			Expect(err).NotTo(HaveOccurred())
+
+			By(fmt.Sprintf("Collecting logs after failed test in %s", tempDir))
+
+			output, err := kubectlWithConfig(managementKubeConfig, "-n", "capi-dns", "logs", "-l", "app=capi-dns-controller", "--tail", "-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "management-capi-dns-controller.log"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterAKubeConfig, "-n", "capi-dns", "logs", "-l", "app=dns-server", "--tail", "-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-a-dns-server.log"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterAKubeConfig, "-n", "kube-system", "logs", "-l", "k8s-app=kube-dns", "--tail", "-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-a-kube-dns.log"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterAKubeConfig, "-n", "capi-dns", "get", "endpointslices", "-o", "yaml")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-a-endpoint-slices.yaml"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterBKubeConfig, "-n", "capi-dns", "logs", "-l", "app=dns-server", "--tail", "-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-b-dns-server.log"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterBKubeConfig, "-n", "kube-system", "logs", "-l", "k8s-app=kube-dns", "--tail", "-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-b-kube-dns.log"), output, 0644)).To(Succeed())
+
+			output, err = kubectlWithConfig(clusterBKubeConfig, "-n", "capi-dns", "get", "endpointslices", "-o", "yaml")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "cluster-b-endpoint-slices.yaml"), output, 0644)).To(Succeed())
+		}
+	})
+
 	It("journeys", func() {
 		By("create a GatewayDNS on management cluster referencing Contour in dev-team namespace")
 		_, err := kubectlWithConfig(managementKubeConfig,
