@@ -324,8 +324,16 @@ function load_cluster_images() {
 
 function patch_kube_system_coredns() {
   local kubeconfig="${1}"
+
+  while [[ -z "$(kubectl get service \
+    --kubeconfig "${kubeconfig}" \
+    -n capi-dns \
+    dns-server -o=jsonpath='{.spec.clusterIP}')" ]]; do
+    sleep 5s;
+  done
+
   local dns_server_service_ip="$(kubectl get service \
-    --kubeconfig ${kubeconfig} \
+    --kubeconfig "${kubeconfig}" \
     -n capi-dns \
     dns-server -o=jsonpath='{.spec.clusterIP}')"
 
