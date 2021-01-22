@@ -142,7 +142,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		}, 35*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 	})
 
-	It("monitors workload clusters for service changes", func() {
+	It("monitors workload clusters for gateway service changes", func() {
 		By("create a GatewayDNS on management cluster referencing Contour in dev-team namespace")
 		_, err := kubectlWithConfig(managementKubeConfig,
 			"apply", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
@@ -156,7 +156,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 			ContainSubstring("x-cluster: cluster-a"),
 		))
 
-		By("deleting the service on cluster a")
+		By("deleting the gateway service on cluster a")
 		_, err = kubectlWithConfig(clusterAKubeConfig, "-n", "projectcontour", "delete", "service", "envoy")
 		Expect(err).NotTo(HaveOccurred())
 
