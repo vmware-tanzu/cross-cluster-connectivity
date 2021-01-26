@@ -37,107 +37,128 @@ even when:
 
 ## Walk Through
 
-The intention of this section is give a high level explanation of the workings
-of Multi-cluster DNS.
-
 This walk through assumes:
-
 - A [management
   cluster](https://cluster-api.sigs.k8s.io/reference/glossary.html#management-cluster)
   exists, running the Cluster API.
+- Two [workload
+  clusters](https://cluster-api.sigs.k8s.io/user/quick-start.html#create-your-first-workload-cluster)
+  exist, with support for services type LoadBalancer. For the sake of this doc, assume
+  `cluster-a` and `cluster-b` exist and both of these Clusters belong to the
+  `dev-team` namespace on the management cluster.
 
-- Two or more workload Clusters have been deployed from the management cluster. For the sake
-  of this doc, assume `cluster-a` and `cluster-b` exist. Both of these Clusters
-  belong to the `dev-team` namespace on the management cluster.
+Note that if you're using `kind` that you'll need to BYO your own load balancer.
+Consider using [MetalLB](https://metallb.universe.tf).
 
-The Multi-cluster DNS project installs a `capi-dns-controller` and a
-GatewayDNSRecord CRD on the management cluster. The GatewayDNSRecord is
-reconciled by the `capi-dns-controller`. An example of this resource may look
-like this:
+### Install Multi-cluster DNS on management cluster
 
-```yaml
----
-apiVersion: connectivity.tanzu.vmware.com/v1alpha1
-kind: GatewayDNS
-metadata:
-  name: dev-team-gateway-dns
-  namespace: dev-team
-spec:
-  clusterSelector:
-    matchLabels:
-      hasContour: "true"
-  service: projectcontour/envoy
-  resolutionType: loadBalancer
-```
+1. Install `GatewayDNS` CRD on the management cluster
+   ```
+   kubectl apply -f manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml
+   ```
+1. Install `capi-dns-controller` on the management cluster
+   ```
+   kubectl apply -f manifests/capi-dns-controller/deployment.yaml
+   ```
 
-This resource is applied by a member of a team that has access to the `dev-team`
-namespace on the management cluster. The spec of this resource specifies a
-`clusterSelector` that tells the reconciler which clusters shall be monitored
-for gateways with a service namespaced/named `projectcontour/envoy` and has
-`loadBalancer` resolution type.
+### Install Multi-cluster DNS on each workload cluster
 
-In this example, let's assume `cluster-a` Cluster resource exists
-on the management cluster, and has the label `hasContour: true`. The reconciler
-would find `cluster-a` because it is in the correct namespace, has the desired
-label. Then the reconciler connects to `cluster-a`'s API and search for a
-service that is namedspace/named `projectcontour/envoy`, and has a service
-resolution type `loadBalancer`. The reconciler collects the service's load
-balanced IP.
+1. Deploy `dns-server` controller
+   ```
+   kubectl apply -f manifests/dns-server/
+   ```
+1. Get IP address assigned to the DNS server service
+   ```
+   kubectl get service -n capi-dns dns-server -o=jsonpath='{.spec.clusterIP}'
+   ```
+1. Patch CoreDNS to forward `xcc.test` zone to the `dns-server`.
+   Note: the needed change is to add forwarding configuration for the
+   `xcc.test` zone. Preserve your Corefile's other configurations.
+   ```bash
+   kubectl -n kube-system patch configmap coredns \
+     --type=strategic --patch="$(cat <<EOF
+   data:
+     Corefile: |
+       .:53 {
+           errors
+           health {
+              lameduck 5s
+           }
+           ready
+           kubernetes cluster.local in-addr.arpa ip6.arpa {
+              pods insecure
+              fallthrough in-addr.arpa ip6.arpa
+              ttl 30
+           }
+           prometheus :9153
+           forward . /etc/resolv.conf
+           cache 30
+           loop
+           reload
+           loadbalance
+       }
+       xcc.test {
+           forward . <REPLACE_WITH_IP_OBTAINED_IN_PRIOR_STEP>
+           reload
+       }
+   EOF
+    )"
+    ```
 
-The `capi-dns-controller` will match on `cluster-a` management cluster resource,
-connects to  API and extracts the load balanced IP of contour. The controller
-then distributes EndpointSlices to all of the clusters in the `dev-team`
-management cluster namespace. In this example the reconciler connects to both
-`cluster-a` and `cluster-b` APIs and applies EnspointSlice resources into the
-`capi-dns` namespace that look like this:
+### Deploy a load balanced service to `cluster-a`
 
+1. Install Contour
+   ```
+   kubectl apply -f manifests/contour/
+   ```
+1. Deploy a workload (kuard)
+   ```
+   kubectl apply -f manifests/example/kuard.yaml
+   ```
 
-```yaml
----
-apiVersion: discovery.k8s.io/v1beta1
-kind: EndpointSlice
-metadata:
-  name: foo-strawberry-gateway
-  namespace: capi-dns
-  annotations:
-    connectivity.tanzu.vmware.com/dns-hostname: "*.gateway.strawberry.dev-team.clusters.xcc.test"
-addressType: IPv4
-endpoints:
-- addresses:
-  - "10.4.5.6"
-```
+### Lastly, wire up cross cluster connectivity
 
+1. On the management cluster, label the Clusters that have services that shall
+   be discoverable by other clusters. The `GatewayDNS` record created later will
+   use this label as a `ClusterSelector`.  In this example, the clusters are are
+   using the label `hasContour=true`.
+   ```
+   kubectl -n dev-team label cluster cluster-a hasContour=true --overwrite
+   kubectl -n dev-team label cluster cluster-b hasContour=true --overwrite
+   ```
+1. On the management cluster, create a GatewayDNS Record.
+   `kubectl -n dev-team apply -f manifests/example/dev-team-gateway-dns.yaml`
 
-The EndpointSlices have a fqdn annotation and the loadBalancer IP of the
-discovered service. The fqdns are generated by the reconciler and have the
-following format
+   The GatewayDNS's spec has a `clusterSelector` that tells the
+   `capi-dns-controller` which clusters shall be watched for services. The
+   controller will look for a service with the namespace/name of `service`. In
+   this example, Contour runs a service in the `projectcontour/envoy`
+   namespace/name. The `resolutionType` in this example's service is type
+   `loadBalancer`.
+   ```
+   ---
+   apiVersion: connectivity.tanzu.vmware.com/v1alpha1
+   kind: GatewayDNS
+   metadata:
+     name: dev-team-gateway-dns
+     namespace: dev-team
+   spec:
+     clusterSelector:
+       matchLabels:
+         hasContour: "true"
+     service: projectcontour/envoy
+     resolutionType: loadBalancer
+   ```
 
-  `*.gateway.<Cluster name>.<Cluster namespace>.clusters.<DOMAIN-SUFFIX>`
+### Test DNS resolution from `cluster-b` to `cluster-a`
 
-where the 'Cluster name' and 'Cluster namespace' are the namespace and name
-of the Cluster resource on the management cluster.
-
-
-Workload clusters run a second controller defined by this project, the
-`capi-dns-server`. This controller exposes a DNS server that resolves addresses
-in the configured DOMAIN-SUFFIX zone. In this example the `capi-dns-server`
-serves for the `xcc.test` zone. The `capi-dns-server` serves A records that are
-derived from the EndpointSlices. The cluster DNS server, `kube-dns`, is
-configured to forward requests to the `capi-dns-server` in the `xcc.test` zone.
-
-
-
-For this example let's also assume that nginx is deployed on `cluster-a`, served
-by contour. An contour HTTPProxy resource configured with a virtualhost fqdn of
-`nginx.gateway.cluster-a.dev-team.clusters.xcc.test`.
-
-
-
-
-
-
-
-
+At this point the kuard application deployed to `cluster-a` should be
+addressable from `cluster-b`.
+   ```bash
+   kubectl run nginx-test -i --rm --image=curlimages/curl \
+      --restart=Never -- curl -v --connect-timeout 3 \
+      http://kuard.gateway.cluster-a.dev-team.clusters.xcc.test
+   ```
 
 ## Contributing
 
