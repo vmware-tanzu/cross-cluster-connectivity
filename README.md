@@ -35,9 +35,9 @@ even when:
 4. Clusters do not follow the rules of [Namespace
    Sameness](https://groups.google.com/forum/#!msg/kubernetes-sig-multicluster/jfDAMxFWlOg/9Z9O0mVpAgAJ)
 
-## Walk Through
+## Walkthrough
 
-This walk through assumes:
+This walkthrough assumes:
 - A [management
   cluster](https://cluster-api.sigs.k8s.io/reference/glossary.html#management-cluster)
   exists, running the Cluster API.
@@ -46,37 +46,45 @@ This walk through assumes:
   exist, with support for services type LoadBalancer. For the sake of this doc, assume
   `cluster-a` and `cluster-b` exist and both of these Clusters belong to the
   `dev-team` namespace on the management cluster.
-
-Note that if you're using `kind` that you'll need to BYO your own load balancer.
-Consider using [MetalLB](https://metallb.universe.tf).
+- The images referenced in these files are not publicly available. The images
+  can be built using `make build-images`. Until the team finds a home for
+  images, you'll need to push them to your own registry and update the
+  deployments accordingly.
+- If you're using `kind`, you'll need to BYO your own load balancer.
+  Consider using [MetalLB](https://metallb.universe.tf).
 
 ### Install Multi-cluster DNS on management cluster
 
 1. Install `GatewayDNS` CRD on the management cluster
-   ```
-   kubectl apply -f manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml
+   ```bash
+   kubectl --kubeconfig management.kubeconfig \
+      apply -f manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml
    ```
 1. Install `capi-dns-controller` on the management cluster
-   ```
-   kubectl apply -f manifests/capi-dns-controller/deployment.yaml
+   ```bash
+   kubectl  --kubeconfig management.kubeconfig \
+      apply -f manifests/capi-dns-controller/deployment.yaml
    ```
 
-### Install Multi-cluster DNS on each workload cluster
+### Install Multi-cluster DNS on *each* workload cluster
 
-1. Deploy `dns-server` controller
-   ```
-   kubectl apply -f manifests/dns-server/
+1. Deploy `dns-server` controller on both workload clusters
+   ```bash
+   kubectl --kubeconfig cluster-a.kubeconfig \
+      apply -f manifests/dns-server/
    ```
 1. Get IP address assigned to the DNS server service
-   ```
-   kubectl get service -n capi-dns dns-server -o=jsonpath='{.spec.clusterIP}'
+   ```bash
+   kubectl --kubeconfig cluster-a.kubeconfig \
+      get service -n capi-dns dns-server -o=jsonpath='{.spec.clusterIP}'
    ```
 1. Patch CoreDNS to forward `xcc.test` zone to the `dns-server`.
    Note: the needed change is to add forwarding configuration for the
    `xcc.test` zone. Preserve your Corefile's other configurations.
    ```bash
-   kubectl -n kube-system patch configmap coredns \
-     --type=strategic --patch="$(cat <<EOF
+   kubectl --kubeconfig cluster-a.kubeconfig \
+      -n kube-system patch configmap coredns \
+      --type=strategic --patch="$(cat <<EOF
    data:
      Corefile: |
        .:53 {
@@ -104,30 +112,38 @@ Consider using [MetalLB](https://metallb.universe.tf).
    EOF
     )"
     ```
+1. Perform the same steps in this section for `cluster-b`
 
 ### Deploy a load balanced service to `cluster-a`
 
 1. Install Contour
-   ```
-   kubectl apply -f manifests/contour/
+   ```bash
+   kubectl --kubeconfig cluster-a.kubeconfig \
+      apply -f manifests/contour/
    ```
 1. Deploy a workload (kuard)
-   ```
-   kubectl apply -f manifests/example/kuard.yaml
+   ```bash
+   kubectl --kubeconfig cluster-a.kubeconfig \
+      apply -f manifests/example/kuard.yaml
    ```
 
 ### Lastly, wire up cross cluster connectivity
 
 1. On the management cluster, label the Clusters that have services that shall
    be discoverable by other clusters. The `GatewayDNS` record created later will
-   use this label as a `ClusterSelector`.  In this example, the clusters are are
+   use this label as a `ClusterSelector`.  In this example, the clusters are
    using the label `hasContour=true`.
-   ```
-   kubectl -n dev-team label cluster cluster-a hasContour=true --overwrite
-   kubectl -n dev-team label cluster cluster-b hasContour=true --overwrite
+   ```bash
+   kubectl --kubeconfig management.kubeconfig \
+      -n dev-team label cluster cluster-a hasContour=true --overwrite
+   kubectl --kubeconfig management.kubeconfig \
+      -n dev-team label cluster cluster-b hasContour=true --overwrite
    ```
 1. On the management cluster, create a GatewayDNS Record.
-   `kubectl -n dev-team apply -f manifests/example/dev-team-gateway-dns.yaml`
+   ```bash
+   kubectl --kubeconfig management.kubeconfig \
+      -n dev-team apply -f manifests/example/dev-team-gateway-dns.yaml
+   ```
 
    The GatewayDNS's spec has a `clusterSelector` that tells the
    `capi-dns-controller` which clusters shall be watched for services. The
@@ -135,7 +151,7 @@ Consider using [MetalLB](https://metallb.universe.tf).
    this example, Contour runs a service in the `projectcontour/envoy`
    namespace/name. The `resolutionType` in this example's service is type
    `loadBalancer`.
-   ```
+   ```yaml
    ---
    apiVersion: connectivity.tanzu.vmware.com/v1alpha1
    kind: GatewayDNS
@@ -155,7 +171,8 @@ Consider using [MetalLB](https://metallb.universe.tf).
 At this point the kuard application deployed to `cluster-a` should be
 addressable from `cluster-b`.
    ```bash
-   kubectl run nginx-test -i --rm --image=curlimages/curl \
+   kubectl --kubeconfig cluster-b.kubeconfig \
+      run kuard-test -i --rm --image=curlimages/curl \
       --restart=Never -- curl -v --connect-timeout 3 \
       http://kuard.gateway.cluster-a.dev-team.clusters.xcc.test
    ```
