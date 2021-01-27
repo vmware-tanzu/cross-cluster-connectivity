@@ -245,6 +245,16 @@ function create_cluster() {
   ${clusterkubectl} config set clusters."${clustername}".server "https://${ip_addr}:${api_server_port}"
   ${clusterkubectl} config unset clusters."${clustername}".certificate-authority-data
   ${clusterkubectl} config set clusters."${clustername}".insecure-skip-tls-verify true
+}
+
+function install_calico_and_wait_until_cluster_ready() {
+  local namespace="${1}"
+  local clustername="${2}"
+  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
+
+  # Do not quote clusterkubectl when using it to allow for the correct
+  # expansion.
+  clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
 
   # Ensure CAPD cluster lb and control plane being ready by querying nodes.
   while ! ${clusterkubectl} get nodes; do
@@ -253,18 +263,6 @@ function create_cluster() {
 
   # Deploy Calico cni into CAPD cluster.
   ${clusterkubectl} apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
-
-  # Deploy cert-manager
-  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
-
-  # Deploy metallb
-  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
-  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
-  ${clusterkubectl} create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
-  # Each cluster needs to give metallb a config with a CIDR for services it exposes.
-  # The clusters are sharing the address space, so they need non-overalpping
-  # ranges assigned to each cluster.
-  ${clusterkubectl} apply -f "${SCRIPTS_DIR}/metallb/config-${clustername}.yaml"
 
   # Wait until every node is in Ready condition.
   for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
@@ -280,7 +278,6 @@ function create_cluster() {
       sleep 5s;
     done
   done
-  mkdir -p "${ROOT_DIR}/kubeconfig"
 }
 
 function create_resource_set_secret() {
@@ -370,6 +367,27 @@ EOF
     )"
 }
 
+function prepare_cluster() {
+  local clustername="${1}"
+  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
+
+  # Do not quote clusterkubectl when using it to allow for the correct
+  # expansion.
+  clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
+
+  # Deploy cert-manager
+  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
+
+  # Deploy metallb
+  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
+  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
+  ${clusterkubectl} create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+  # Each cluster needs to give metallb a config with a CIDR for services it exposes.
+  # The clusters are sharing the address space, so they need non-overalpping
+  # ranges assigned to each cluster.
+  ${clusterkubectl} apply -f "${SCRIPTS_DIR}/metallb/config-${clustername}.yaml"
+}
+
 function e2e_up() {
   check_dependencies
 
@@ -379,6 +397,12 @@ function e2e_up() {
   kubectl_mgc create namespace dev-team
   create_cluster "dev-team" "${CLUSTER_A}"
   create_cluster "dev-team" "${CLUSTER_B}"
+
+  install_calico_and_wait_until_cluster_ready "dev-team" "${CLUSTER_A}"
+  install_calico_and_wait_until_cluster_ready "dev-team" "${CLUSTER_B}"
+
+  prepare_cluster "${CLUSTER_A}"
+  prepare_cluster "${CLUSTER_B}"
 
   # Label the clusters so we can install our stuff with ClusterResourceSet
   kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
