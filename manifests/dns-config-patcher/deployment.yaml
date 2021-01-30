@@ -27,7 +27,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: dns-config-patcher
-        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/dns-config-patcher:dev
+        image: gcr.io/tanzu-xcc/dns-config-patcher:dev
         env:
         - name: "DNS_SERVICE_NAMESPACE"
           value: "capi-dns"

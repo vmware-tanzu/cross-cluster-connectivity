@@ -1,4 +1,4 @@
-IMAGE_REGISTRY ?= ghcr.io/vmware-tanzu/cross-cluster-connectivity
+IMAGE_REGISTRY ?= gcr.io/tanzu-xcc
 IMAGE_TAG ?= dev
 
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)

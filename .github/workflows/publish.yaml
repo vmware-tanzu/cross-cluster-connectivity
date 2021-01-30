@@ -1,0 +1,67 @@
+---
+name: Publish Docker image
+on:
+  workflow_run:
+    workflows: ["Test", "Check License"]
+    types:
+      - completed
+    branches:
+      - main
+jobs:
+  push_images_to_registry:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    if: "${{ github.event.workflow_run.conclusion == 'success' }}"
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Docker meta for capi-dns-controller
+        id: docker_meta_capi_dns_controller
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: gcr.io/tanzu-xcc/capi-dns-controller
+          tag-sha: true
+          tag-custom: dev
+      - name: Docker meta for dns-server
+        id: docker_meta_dns_server
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: gcr.io/tanzu-xcc/dns-server
+          tag-sha: true
+          tag-custom: dev
+      - name: Docker meta for dns-config-patcher
+        id: docker_meta_dns_config_patcher
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: gcr.io/tanzu-xcc/dns-config-patcher
+          tag-sha: true
+          tag-custom: dev
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: gcr.io
+          username: "${{ secrets.GCR_USERNAME }}"
+          password: "${{ secrets.GCR_SECRET }}"
+      - name: Build and push capi-dns-controller
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./cmd/capi-dns-controller/Dockerfile
+          push: true
+          tags: "${{ steps.docker_meta_capi_dns_controller.outputs.tags }}"
+      - name: Build and push dns-server
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./cmd/dns-server/Dockerfile
+          push: true
+          tags: "${{ steps.docker_meta_dns_server.outputs.tags }}"
+      - name: Build and push dns-config-patcher
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./cmd/dns-config-patcher/Dockerfile
+          push: true
+          tags: "${{ steps.docker_meta_dns_config_patcher.outputs.tags }}"

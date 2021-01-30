@@ -30,7 +30,7 @@ spec:
       serviceAccountName: dns-server
       containers:
       - name: dns-server
-        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/dns-server:dev
+        image: gcr.io/tanzu-xcc/dns-server:dev
         args: [ "-conf", "/etc/coredns/Corefile" ]
         env:
         - name: NAMESPACE
