@@ -30,7 +30,7 @@ spec:
       serviceAccountName: capi-dns-controller
       containers:
       - name: capi-dns-controller
-        image: ghcr.io/vmware-tanzu/cross-cluster-connectivity/capi-dns-controller:dev
+        image: gcr.io/tanzu-xcc/capi-dns-controller:dev
         args: []
         env:
         - name: NAMESPACE

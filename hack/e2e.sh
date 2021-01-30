@@ -72,7 +72,7 @@ USE_HOST_IP_ADDR="${USE_HOST_IP_ADDR:-}"
 ROOT_DIR="${PWD}"
 SCRIPTS_DIR="${ROOT_DIR}/hack"
 
-IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io/vmware-tanzu/cross-cluster-connectivity}"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-gcr.io/tanzu-xcc}"
 IMAGE_TAG="${IMAGE_TAG:-dev}"
 
 DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
