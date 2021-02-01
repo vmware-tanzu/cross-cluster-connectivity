@@ -26,30 +26,53 @@ make test-unit
 
 ## Building
 
-When you want to build new images of the components to deploy to a Kubernetes
-cluster, you can run:
+When you want to build new images of the components, with local changes, to
+deploy to a Kubernetes cluster, you can run:
 
 ```
 make build-images
 ```
 
-This will take any local changes and build new docker images. These images can
-then be deployed into a Kind cluster by running:
+These images can then be deployed into a set of
+[Kind](https://kind.sigs.k8s.io/) clusters by running:
 
 ```
 make e2e-up
 ```
 
+At the end of this you will have a local end-to-end development environment.
+There will be a `management` cluster with [Cluster
+API](https://cluster-api.sigs.k8s.io/) deployed on it and two workload clusters
+called `cluster-a` and `cluster-b`.
+
 ### Running the end-to-end tests
 
 These tests verify the end-to-end functionality of the Cross-cluster
-Connectivity components. The test creates an example exported service on the
-shared-services cluster and tests connectivity to it from the workload cluster.
+Connectivity components. The test creates an example exported service on
+`cluster-a` and tests connectivity to it from `cluster-b`.
 
-With the clusters created by the instructions above, run the following command:
+With the clusters created by the `e2e-up` above, run the following command:
 
 ```
-make test-connectivity
+make test-cluster-api-dns
+```
+
+### Connecting to the clusters
+
+After running `e2e-up`, there will be three kubeconfig files created in the repo
+root: `management.kubeconfig`, `cluster-a.kubeconfig`, `cluster-b.kubeconfig`.
+For example, to get the pods on `cluster-a` you can run:
+
+```
+kubectl --kubeconfig ./cluster-a.kubeconfig get pods -A
+```
+
+### Tearing down end-to-end development environment
+
+Run the following to tear down the Kind clusters created by `e2e-up`:
+
+```
+make e2e-down
 ```
 
 ### Add license to source files
