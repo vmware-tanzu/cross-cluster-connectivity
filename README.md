@@ -2,16 +2,6 @@
 
 Multi-cluster DNS for [Cluster API](https://cluster-api.sigs.k8s.io/)
 
-
-## Status
-
-This project is in the middle of a reboot, to simplify the operational model
-and utilize a Cluster API control plane.  We're keeping the old code on the `v1`
-branch.  New development is happening in PRs against `main`.
-
-A high-level tracking issue is [#38](https://github.com/vmware-tanzu/cross-cluster-connectivity/issues/38).
-
-
 ## What?
 
 This project aims to enables a Kubernetes service in one cluster to be
