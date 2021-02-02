@@ -7,11 +7,10 @@ import (
 	"context"
 	"errors"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns/gatewaydnsfakes"
+	corev1 "k8s.io/api/core/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Endpoint Slice Reconciler", func() {
@@ -129,6 +131,21 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			},
 		}
 
+		corev1Namespace := corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		err := clusterClient0.Create(context.Background(), &corev1Namespace)
+		Expect(err).NotTo(HaveOccurred())
+
+		corev1Namespace = corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		err = clusterClient1.Create(context.Background(), &corev1Namespace)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("when the cluster contains no previous endpoint slices", func() {
@@ -400,6 +417,30 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
 			Expect(errs).To(ConsistOf(errors.New("oopa"), errors.New("oopa")))
 			Expect(clientProvider.GetClientCallCount()).To(Equal(2))
+		})
+	})
+
+	Context("when the namespace does not exist on the cluster", func() {
+		BeforeEach(func() {
+			corev1Namespace := corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}
+			err := clusterClient0.Delete(context.Background(), &corev1Namespace)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("skips the cluster without the namespace and without erroring, converges the other cluster", func() {
+			errs := endpointSliceReconciler.ConvergeEndpointSlicesToClusters(context.Background(), clusters, gatewayDNSNamespacedName, endpointSlices)
+			Expect(errs).To(HaveLen(0))
+
+			var endpointSliceList discoveryv1beta1.EndpointSliceList
+			Expect(clusterClient0.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(HaveLen(0))
+
+			Expect(clusterClient1.List(context.Background(), &endpointSliceList)).NotTo(HaveOccurred())
+			Expect(endpointSliceList.Items).To(WithTransform(endpointSliceItemsToName, ConsistOf("endpoint-slice-1", "endpoint-slice-2")))
 		})
 	})
 })

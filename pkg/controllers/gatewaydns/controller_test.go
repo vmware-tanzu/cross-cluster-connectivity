@@ -48,6 +48,8 @@ var _ = Describe("Controller", func() {
 		gatewayCluster        *clusterv1alpha3.Cluster
 		workloadCluster       *clusterv1alpha3.Cluster
 		otherNamespaceCluster *clusterv1alpha3.Cluster
+
+		namespace string
 	)
 
 	BeforeEach(func() {
@@ -83,17 +85,19 @@ var _ = Describe("Controller", func() {
 
 		log := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
 
+		namespace = "capi-dns"
 		gatewayDNSReconciler = &gatewaydns.GatewayDNSReconciler{
 			Client:          managementClient,
 			Log:             log,
 			Scheme:          managementClient.Scheme(),
 			ClientProvider:  clientProvider,
-			Namespace:       "capi-dns",
+			Namespace:       namespace,
 			DomainSuffix:    "xcc.test",
 			ClusterSearcher: &gatewaydns.ClusterSearcher{Client: managementClient},
 			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{
 				Log:            log,
 				ClientProvider: clientProvider,
+				Namespace:      namespace,
 			},
 			ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 				Log:            log,
@@ -101,6 +105,30 @@ var _ = Describe("Controller", func() {
 			},
 			PollingInterval: time.Millisecond,
 		}
+
+		corev1Namespace := corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		err := gatewayClusterClient.Create(context.Background(), &corev1Namespace)
+		Expect(err).NotTo(HaveOccurred())
+
+		corev1Namespace = corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		err = workloadClusterClient.Create(context.Background(), &corev1Namespace)
+		Expect(err).NotTo(HaveOccurred())
+
+		corev1Namespace = corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		err = otherNamespaceClusterClient.Create(context.Background(), &corev1Namespace)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("Reconcile", func() {
@@ -218,13 +246,13 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice := discoveryv1beta1.EndpointSlice{}
 				err = gatewayClusterClient.Get(context.Background(), types.NamespacedName{
-					Namespace: "capi-dns",
+					Namespace: namespace,
 					Name:      "some-namespace-some-gateway-cluster-gateway",
 				}, &endpointSlice)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.4"}))
@@ -236,7 +264,7 @@ var _ = Describe("Controller", func() {
 				Expect(endpointSliceList.Items).To(HaveLen(1))
 				endpointSlice = endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.4"}))
@@ -290,6 +318,14 @@ var _ = Describe("Controller", func() {
 				anotherGatewayClusterClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 				clusterClients["some-namespace/another-gateway-cluster"] = anotherGatewayClusterClient
 
+				corev1Namespace := corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: namespace,
+					},
+				}
+				err = anotherGatewayClusterClient.Create(context.Background(), &corev1Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				service := &corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "some-gateway-service",
@@ -334,7 +370,7 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice := endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
@@ -345,7 +381,7 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice = endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
@@ -356,7 +392,7 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice = endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-another-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.another-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.6"}))
@@ -407,7 +443,7 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice := endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.7"}))
@@ -418,7 +454,7 @@ var _ = Describe("Controller", func() {
 
 				endpointSlice = endpointSliceList.Items[0]
 				Expect(endpointSlice.ObjectMeta.Name).To(Equal("some-namespace-some-gateway-cluster-gateway"))
-				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal("capi-dns"))
+				Expect(endpointSlice.ObjectMeta.Namespace).To(Equal(namespace))
 				Expect(endpointSlice.ObjectMeta.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.some-gateway-cluster.some-namespace.clusters.xcc.test"))
 				Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 				Expect(endpointSlice.Endpoints[0].Addresses).To(Equal([]string{"1.2.3.7"}))

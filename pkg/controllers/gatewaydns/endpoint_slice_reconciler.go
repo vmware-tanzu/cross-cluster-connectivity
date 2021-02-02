@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -39,6 +40,18 @@ func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.C
 			log.Error(err, "Failed to get Cluster client")
 			errors = append(errors, err)
 			continue
+		}
+
+		var namespace corev1.Namespace
+		err = clusterClient.Get(ctx, client.ObjectKey{Name: e.Namespace}, &namespace)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			} else {
+				log.Error(err, "Failed to get namespace")
+				errors = append(errors, err)
+				continue
+			}
 		}
 
 		err = e.convergeCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
