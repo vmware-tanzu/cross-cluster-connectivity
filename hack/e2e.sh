@@ -169,16 +169,18 @@ function setup_management_cluster() {
   kind get kubeconfig --name management > "${kubeconfig_path}"
 }
 
+function msg() {
+  echo
+  echo "### ${1} ###"
+  echo
+}
 
 function create_cluster() {
   local simple_cluster_yaml="./hack/kind/simple-cluster.yaml"
   local namespace="${1}"
   local clustername="${2}"
 
-  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
-
-  local ip_addr="127.0.0.1"
-
+  msg "Creating cluster resource for ${clustername} on management cluster in namespace ${namespace}"
   # Create per cluster deployment manifest, replace the original resource
   # names with our desired names, parameterized by clustername.
   if ! kind get clusters 2>/dev/null | grep -q "${clustername}"; then
@@ -187,18 +189,24 @@ function create_cluster() {
 	-e 's~controlplane-0~'"${clustername}"'-controlplane-0~g' \
 	-e 's~worker-0~'"${clustername}"'-worker-0~g' |
       kubectl_mgc apply -n "${namespace}" -f -
-    while ! kubectl_mgc -n "${namespace}" get secret "${clustername}"-kubeconfig; do
-      sleep 5s
-    done
+  else
+    echo "kind cluster ${clustername} already exists"
   fi
+}
 
+function wait_and_patch_kubeconfig() {
+  local namespace="${1}"
+  local clustername="${2}"
+
+  msg "Waiting for kubeconfig secret for ${clustername} to patch"
+  while ! kubectl_mgc -n "${namespace}" get secret "${clustername}"-kubeconfig; do
+    sleep 5s
+  done
+
+  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
   kubectl_mgc -n "${namespace}" get secret "${clustername}"-kubeconfig -o json | \
     jq -cr '.data.value' | \
-    base64d >"${kubeconfig_path}"
-
-  # Do not quote clusterkubectl when using it to allow for the correct
-  # expansion.
-  clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
+    base64d >"${clustername}.kubeconfig"
 
   # Get the API server port for the cluster.
   local api_server_port
@@ -209,34 +217,38 @@ function create_cluster() {
   #   2. disable SSL by removing the CA and setting insecure to true;
   # Note: we're assuming the lb pod is ready at this moment. If it's not,
   # we'll error out because of the script global settings.
-  ${clusterkubectl} config set clusters."${clustername}".server "https://${ip_addr}:${api_server_port}"
-  ${clusterkubectl} config unset clusters."${clustername}".certificate-authority-data
-  ${clusterkubectl} config set clusters."${clustername}".insecure-skip-tls-verify true
+  kubectl --kubeconfig="${clustername}.kubeconfig" config \
+    set clusters."${clustername}".server "https://127.0.0.1:${api_server_port}"
+  kubectl --kubeconfig="${clustername}.kubeconfig" config \
+    unset clusters."${clustername}".certificate-authority-data
+  kubectl --kubeconfig="${clustername}.kubeconfig" config \
+    set clusters."${clustername}".insecure-skip-tls-verify true
 }
 
-function install_calico_and_wait_until_cluster_ready() {
-  local namespace="${1}"
-  local clustername="${2}"
-  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
+function wait_for_lb_and_control_plane() {
+  local clustername="${1}"
 
-  # Do not quote clusterkubectl when using it to allow for the correct
-  # expansion.
-  clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
-
-  # Ensure CAPD cluster lb and control plane being ready by querying nodes.
-  while ! ${clusterkubectl} get nodes; do
+  msg "Waiting for cluster lb and control plane to be ready for ${clustername}"
+  while ! kubectl --kubeconfig "${clustername}.kubeconfig" get nodes; do
     sleep 5s
   done
+}
 
-  # Deploy Calico cni into CAPD cluster.
-  ${clusterkubectl} apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+function wait_for_ready_nodes() {
+  local clustername="${1}"
 
-  # Wait until every node is in Ready condition.
-  for node in $(${clusterkubectl} get nodes -o json | jq -cr '.items[].metadata.name'); do
-    ${clusterkubectl} wait --for=condition=Ready --timeout=300s node/"${node}"
+  msg "Waiting for ${clustername} nodes to be Ready"
+  for node in $(kubectl --kubeconfig "${clustername}.kubeconfig" get nodes -o json | jq -cr '.items[].metadata.name'); do
+    kubectl --kubeconfig "${clustername}.kubeconfig" wait \
+    --for=condition=Ready --timeout=300s node/"${node}"
   done
+}
 
-  # Wait until every machine has ExternalIP in status
+function wait_for_external_ips() {
+  local namespace="${1}"
+  local clustername="${2}"
+
+  msg "Waiting for every machine to have an ExternalIP in its status for ${clustername}"
   local machines="$(kubectl_mgc get machine -n "${namespace}" \
     -l "cluster.x-k8s.io/cluster-name=${clustername}" \
     -o json | jq -cr '.items[].metadata.name')"
@@ -247,23 +259,29 @@ function install_calico_and_wait_until_cluster_ready() {
   done
 }
 
-function patch_kube_system_coredns() {
-  local kubeconfig="${1}"
+function wait_for_dns_cluster_ip() {
+  local clustername="${1}"
 
+  msg "Waiting for multi-cluster DNS to have clusterIP on ${clustername}"
   while [[ -z "$(kubectl get service \
-    --kubeconfig "${kubeconfig}" \
+    --kubeconfig "${clustername}.kubeconfig" \
     -n capi-dns \
     dns-server -o=jsonpath='{.spec.clusterIP}')" ]]; do
     sleep 5s;
   done
+}
 
+function patch_kube_system_coredns() {
+  local clustername="${1}"
+
+  msg "Patching CoreDNS Corefile for ${clustername}"
   local dns_server_service_ip="$(kubectl get service \
-    --kubeconfig "${kubeconfig}" \
+    --kubeconfig "${clustername}.kubeconfig" \
     -n capi-dns \
     dns-server -o=jsonpath='{.spec.clusterIP}')"
 
   kubectl patch configmap coredns \
-    --kubeconfig "${kubeconfig}" \
+    --kubeconfig "${clustername}.kubeconfig" \
     -n kube-system \
     --type=strategic --patch="$(
       cat <<EOF
@@ -295,7 +313,7 @@ EOF
     )"
 }
 
-function prepare_cluster() {
+function install_cert_manager_and_metatallb() {
   local clustername="${1}"
   local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
 
@@ -303,10 +321,10 @@ function prepare_cluster() {
   # expansion.
   clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
 
-  # Deploy cert-manager
+  msg "Deploying cert-manager on cluster ${clustername}"
   ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
 
-  # Deploy metallb
+  msg "Deploying metallb on cluster ${clustername}"
   ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
   ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
   ${clusterkubectl} create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
@@ -318,19 +336,35 @@ function prepare_cluster() {
 
 function e2e_up() {
   check_dependencies
-
   setup_management_cluster
-
-  # Create two clusters
   kubectl_mgc create namespace dev-team
+
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     create_cluster "dev-team" "${cluster}"
-    install_calico_and_wait_until_cluster_ready "dev-team" "${cluster}"
-    prepare_cluster "${cluster}"
+  done
+
+  for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
+    wait_and_patch_kubeconfig "dev-team" "${cluster}"
+    wait_for_lb_and_control_plane "${cluster}"
+    msg "Installing calico on ${cluster}"
+    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+  done
+
+  for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
+    wait_for_ready_nodes "${cluster}"
+    wait_for_external_ips "dev-team" "${cluster}"
+    install_cert_manager_and_metatallb "${cluster}"
+    msg "Loading docker images on ${cluster}"
     kind load docker-image "${DNS_SERVER_IMAGE}" --name "${cluster}"
-    kubectl --kubeconfig ${cluster}.kubeconfig apply -f manifests/dns-server/
-    patch_kube_system_coredns "${cluster}.kubeconfig"
-    kubectl --kubeconfig ${cluster}.kubeconfig apply -f manifests/contour/
+    msg "Installing multi-cluster DNS on ${cluster}"
+    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/dns-server/
+  done
+
+  for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
+    wait_for_dns_cluster_ip "${cluster}"
+    patch_kube_system_coredns "${cluster}"
+    msg "Installing Contour on ${cluster}"
+    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/contour/
     kubectl_mgc -n dev-team label cluster "${cluster}" hasContour=true --overwrite
   done
 
