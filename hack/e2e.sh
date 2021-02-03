@@ -80,8 +80,6 @@ CAPI_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/capi-dns-controller:${IMAGE_TAG}
 
 CLUSTER_A="cluster-a"
 CLUSTER_B="cluster-b"
-CLUSTER_A_KUBECONFIG="cluster-a.kubeconfig"
-CLUSTER_B_KUBECONFIG="cluster-b.kubeconfig"
 
 ################################################################################
 ##                                  require
@@ -143,38 +141,7 @@ function setup_management_cluster() {
   fi
 
   clusterctl init \
-    --kubeconfig-context "kind-${KIND_MANAGEMENT_CLUSTER}" \
-    --core "cluster-api:v0.3.11"
-
-  # Enable the ClusterResourceSet feature in cluster API
-  kubectl_mgc -n capi-webhook-system patch deployment capi-controller-manager \
-    --type=strategic --patch="$(
-      cat <<EOF
-spec:
-  template:
-    spec:
-      containers:
-      - name: manager
-        args:
-        - --metrics-addr=127.0.0.1:8080
-        - --webhook-port=9443
-        - --feature-gates=ClusterResourceSet=true
-EOF
-    )"
-
-  kubectl_mgc -n capi-system patch deployment capi-controller-manager \
-    --type=strategic --patch="$(
-      cat <<EOF
-spec:
-  template:
-    spec:
-      containers:
-      - name: manager
-        args:
-        - --metrics-addr=127.0.0.1:8080
-        - --feature-gates=ClusterResourceSet=true
-EOF
-    )"
+    --kubeconfig-context "kind-${KIND_MANAGEMENT_CLUSTER}"
 
   kubectl_mgc wait deployment/capi-controller-manager \
     -n capi-system \
@@ -280,45 +247,6 @@ function install_calico_and_wait_until_cluster_ready() {
   done
 }
 
-function create_resource_set_secret() {
-  local namespace="${1}"
-  local name="${2}"
-  local file="${3}"
-  kubectl_mgc create secret generic "${name}" \
-    -n "${namespace}" \
-    --from-file="${file}" \
-    --type=addons.cluster.x-k8s.io/resource-set \
-    --dry-run --save-config -o yaml | kubectl_mgc apply -f -
-}
-
-function deploy_cluster_resource_set() {
-  local namespace="${1}"
-
-  create_resource_set_secret "${namespace}" "dns-server" "manifests/dns-server"
-
-  cat <<EOF | kubectl_mgc apply -f -
-apiVersion: addons.cluster.x-k8s.io/v1alpha3
-kind: ClusterResourceSet
-metadata:
-  name: connectivity
-  namespace: ${namespace}
-spec:
-  strategy: ApplyOnce
-  clusterSelector:
-    matchExpressions:
-    - key: cross-cluster-connectivity
-      operator: Exists
-  resources:
-    - name: dns-server
-      kind: Secret
-EOF
-}
-
-function load_cluster_images() {
-  kind load docker-image "${DNS_SERVER_IMAGE}" --name "${CLUSTER_A}"
-  kind load docker-image "${DNS_SERVER_IMAGE}" --name "${CLUSTER_B}"
-}
-
 function patch_kube_system_coredns() {
   local kubeconfig="${1}"
 
@@ -395,34 +323,16 @@ function e2e_up() {
 
   # Create two clusters
   kubectl_mgc create namespace dev-team
-  create_cluster "dev-team" "${CLUSTER_A}"
-  create_cluster "dev-team" "${CLUSTER_B}"
-
-  install_calico_and_wait_until_cluster_ready "dev-team" "${CLUSTER_A}"
-  install_calico_and_wait_until_cluster_ready "dev-team" "${CLUSTER_B}"
-
-  prepare_cluster "${CLUSTER_A}"
-  prepare_cluster "${CLUSTER_B}"
-
-  # Label the clusters so we can install our stuff with ClusterResourceSet
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" cross-cluster-connectivity=true --overwrite
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" cross-cluster-connectivity=true --overwrite
-
-  load_cluster_images
-  deploy_cluster_resource_set "dev-team"
-
-  patch_kube_system_coredns "${CLUSTER_A_KUBECONFIG}"
-  patch_kube_system_coredns "${CLUSTER_B_KUBECONFIG}"
-
-  # deploy addons for cluster-a
-  kubectl --kubeconfig ${CLUSTER_A_KUBECONFIG} apply -f manifests/contour/
-
-  # deploy addons for cluster-b
-  kubectl --kubeconfig ${CLUSTER_B_KUBECONFIG} apply -f manifests/contour/
-
-  # Label the clusters with the hasContour label for the gateway dns resource
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_A}" hasContour=true --overwrite
-  kubectl_mgc -n dev-team label cluster "${CLUSTER_B}" hasContour=true --overwrite
+  for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
+    create_cluster "dev-team" "${cluster}"
+    install_calico_and_wait_until_cluster_ready "dev-team" "${cluster}"
+    prepare_cluster "${cluster}"
+    kind load docker-image "${DNS_SERVER_IMAGE}" --name "${cluster}"
+    kubectl --kubeconfig ${cluster}.kubeconfig apply -f manifests/dns-server/
+    patch_kube_system_coredns "${cluster}.kubeconfig"
+    kubectl --kubeconfig ${cluster}.kubeconfig apply -f manifests/contour/
+    kubectl_mgc -n dev-team label cluster "${cluster}" hasContour=true --overwrite
+  done
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     cat <<EOF
