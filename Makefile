@@ -3,6 +3,7 @@ IMAGE_TAG ?= dev
 
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)
 CAPI_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/capi-dns-controller:$(IMAGE_TAG)
+DNS_CONFIG_PATCHER_IMAGE := $(IMAGE_REGISTRY)/dns-config-patcher:$(IMAGE_TAG)
 
 CLUSTER_A := "cluster-a"
 CLUSTER_B := "cluster-b"
@@ -43,18 +44,28 @@ test-cluster-api-dns:
 	ginkgo -v $(PWD)/test/clusterapidns
 
 .PHONY: build-images
-build-images: build-dns-server build-capi-dns-controller
+build-images: build-dns-server build-capi-dns-controller build-dns-config-patcher
 
 .PHONY: build-dns-server
 build-dns-server:
 	docker build -f cmd/dns-server/Dockerfile -t $(DNS_SERVER_IMAGE) .
+
+.PHONY: build-dns-config-patcher
+build-dns-config-patcher:
+	docker build -f cmd/dns-config-patcher/Dockerfile -t $(DNS_CONFIG_PATCHER_IMAGE) .
 
 .PHONY: build-capi-dns-controller
 build-capi-dns-controller:
 	docker build -f cmd/capi-dns-controller/Dockerfile -t $(CAPI_DNS_CONTROLLER_IMAGE) .
 
 .PHONY: e2e-load-images
-e2e-load-images: e2e-load-dns-server-image e2e-load-capi-dns-controller-image
+e2e-load-images: e2e-load-dns-server-image e2e-load-capi-dns-controller-image e2e-load-dns-config-patcher-image
+
+.PHONY: e2e-load-dns-config-patcher-image
+e2e-load-dns-config-patcher-image:
+	kind load docker-image $(DNS_CONFIG_PATCHER_IMAGE) --name $(CLUSTER_A)
+	kind load docker-image $(DNS_CONFIG_PATCHER_IMAGE) --name $(CLUSTER_B)
+	#TODO: re-run the job
 
 .PHONY: e2e-load-dns-server-image
 e2e-load-dns-server-image:

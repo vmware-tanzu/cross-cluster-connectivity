@@ -77,6 +77,7 @@ IMAGE_TAG="${IMAGE_TAG:-dev}"
 
 DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
 CAPI_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/capi-dns-controller:${IMAGE_TAG}
+DNS_CONFIG_PATCHER_IMAGE=${IMAGE_REGISTRY}/dns-config-patcher:${IMAGE_TAG}
 
 CLUSTER_A="cluster-a"
 CLUSTER_B="cluster-b"
@@ -350,19 +351,22 @@ function e2e_up() {
     kubectl --kubeconfig "${cluster}.kubeconfig" apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
   done
 
+
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     wait_for_ready_nodes "${cluster}"
     wait_for_external_ips "dev-team" "${cluster}"
     install_cert_manager_and_metatallb "${cluster}"
     msg "Loading docker images on ${cluster}"
     kind load docker-image "${DNS_SERVER_IMAGE}" --name "${cluster}"
+    kind load docker-image "${DNS_CONFIG_PATCHER_IMAGE}" --name "${cluster}"
     msg "Installing multi-cluster DNS on ${cluster}"
     kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/dns-server/
+    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/dns-config-patcher/
   done
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
-    wait_for_dns_cluster_ip "${cluster}"
-    patch_kube_system_coredns "${cluster}"
+    # wait_for_dns_cluster_ip "${cluster}"
+    # patch_kube_system_coredns "${cluster}"
     msg "Installing Contour on ${cluster}"
     kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/contour/
     kubectl_mgc -n dev-team label cluster "${cluster}" hasContour=true --overwrite
