@@ -15,7 +15,7 @@ MANAGEMENT_KUBECONFIG ?= $(PWD)/$(MANAGEMENT).kubeconfig
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 .PHONY: check
-check: generate fmt vet
+check: generate test-unit
 
 .PHONY: e2e-up
 e2e-up:
