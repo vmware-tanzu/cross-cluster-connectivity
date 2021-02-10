@@ -260,60 +260,6 @@ function wait_for_external_ips() {
   done
 }
 
-function wait_for_dns_cluster_ip() {
-  local clustername="${1}"
-
-  msg "Waiting for multi-cluster DNS to have clusterIP on ${clustername}"
-  while [[ -z "$(kubectl get service \
-    --kubeconfig "${clustername}.kubeconfig" \
-    -n capi-dns \
-    dns-server -o=jsonpath='{.spec.clusterIP}')" ]]; do
-    sleep 5s;
-  done
-}
-
-function patch_kube_system_coredns() {
-  local clustername="${1}"
-
-  msg "Patching CoreDNS Corefile for ${clustername}"
-  local dns_server_service_ip="$(kubectl get service \
-    --kubeconfig "${clustername}.kubeconfig" \
-    -n capi-dns \
-    dns-server -o=jsonpath='{.spec.clusterIP}')"
-
-  kubectl patch configmap coredns \
-    --kubeconfig "${clustername}.kubeconfig" \
-    -n kube-system \
-    --type=strategic --patch="$(
-      cat <<EOF
-data:
-  Corefile: |
-    .:53 {
-        errors
-        health {
-           lameduck 5s
-        }
-        ready
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-           pods insecure
-           fallthrough in-addr.arpa ip6.arpa
-           ttl 30
-        }
-        prometheus :9153
-        forward . /etc/resolv.conf
-        cache 30
-        loop
-        reload
-        loadbalance
-    }
-    xcc.test {
-        forward . ${dns_server_service_ip}
-        reload
-    }
-EOF
-    )"
-}
-
 function install_cert_manager_and_metatallb() {
   local clustername="${1}"
   local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
@@ -365,8 +311,6 @@ function e2e_up() {
   done
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
-    # wait_for_dns_cluster_ip "${cluster}"
-    # patch_kube_system_coredns "${cluster}"
     msg "Installing Contour on ${cluster}"
     kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/contour/
     kubectl_mgc -n dev-team label cluster "${cluster}" hasContour=true --overwrite
