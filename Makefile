@@ -65,7 +65,6 @@ e2e-load-images: e2e-load-dns-server-image e2e-load-capi-dns-controller-image e2
 e2e-load-dns-config-patcher-image:
 	kind load docker-image $(DNS_CONFIG_PATCHER_IMAGE) --name $(CLUSTER_A)
 	kind load docker-image $(DNS_CONFIG_PATCHER_IMAGE) --name $(CLUSTER_B)
-	#TODO: re-run the job
 
 .PHONY: e2e-load-dns-server-image
 e2e-load-dns-server-image:
