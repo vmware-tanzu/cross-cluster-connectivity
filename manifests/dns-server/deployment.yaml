@@ -113,7 +113,7 @@ metadata:
   namespace: capi-dns
 data:
   Corefile: |
-    xcc.test {
+    . {
         log
         errors
         health {

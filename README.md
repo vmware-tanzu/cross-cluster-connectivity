@@ -56,6 +56,15 @@ This walkthrough assumes:
       apply -f manifests/capi-dns-controller/deployment.yaml
    ```
 
+   Note: by default, this manifest configures the controller to generate
+   cross-cluster DNS records with the suffix `xcc.test`.
+   To use a different suffix, customize your deployment yaml, e.g.
+   ```bash
+   cat manifests/capi-dns-controller/deployment.yaml \
+      | sed 's/xcc\.test/multi-cluster.example.com/g' \
+      | kubectl --kubeconfig management.kubeconfig apply -f -
+   ```
+
 ### Install Multi-cluster DNS on *each* workload cluster
 
 1. Deploy `dns-server` controller on both workload clusters
@@ -63,13 +72,20 @@ This walkthrough assumes:
    kubectl --kubeconfig cluster-a.kubeconfig \
       apply -f manifests/dns-server/
    ```
-1. Patch the `kube-system` CoreDNS configuration to forward `xcc.test` zone to
-   the `dns-server`. This can be done by running the `dns-config-patcher`
+1. Configure your cluster's root DNS server to forward queries for the `xcc.test` zone to
+   the xcc `dns-server`. This can be done by running the `dns-config-patcher`
    job.
    ```bash
    kubectl --kubeconfig cluster-a.kubeconfig \
-      apply -f manifests/dns-config-patcher/
+      apply -f manifests/dns-config-patcher/deployment.yaml
    ```
+   Note: to use a DNS zone other than `xcc.test`, customize your deployment yaml, e.g.
+   ```bash
+   cat manifests/dns-config-patcher/deployment.yaml \
+      | sed 's/xcc\.test/multi-cluster.example.com/g' \
+      | kubectl --kubeconfig cluster-a.kubeconfig apply -f -
+   ```
+
 Repeat the steps above for `cluster-b`.
 
 ### Deploy a load balanced service to `cluster-a`
