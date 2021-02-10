@@ -63,46 +63,14 @@ This walkthrough assumes:
    kubectl --kubeconfig cluster-a.kubeconfig \
       apply -f manifests/dns-server/
    ```
-1. Get IP address assigned to the DNS server service
+1. Patch the `kube-system` CoreDNS configuration to forward `xcc.test` zone to
+   the `dns-server`. This can be done by running the `dns-config-patcher`
+   job.
    ```bash
    kubectl --kubeconfig cluster-a.kubeconfig \
-      get service -n capi-dns dns-server -o=jsonpath='{.spec.clusterIP}'
+      apply -f manifests/dns-config-patcher/
    ```
-1. Patch CoreDNS to forward `xcc.test` zone to the `dns-server`.
-   Note: the needed change is to add forwarding configuration for the
-   `xcc.test` zone. Preserve your Corefile's other configurations.
-   ```bash
-   kubectl --kubeconfig cluster-a.kubeconfig \
-      -n kube-system patch configmap coredns \
-      --type=strategic --patch="$(cat <<EOF
-   data:
-     Corefile: |
-       .:53 {
-           errors
-           health {
-              lameduck 5s
-           }
-           ready
-           kubernetes cluster.local in-addr.arpa ip6.arpa {
-              pods insecure
-              fallthrough in-addr.arpa ip6.arpa
-              ttl 30
-           }
-           prometheus :9153
-           forward . /etc/resolv.conf
-           cache 30
-           loop
-           reload
-           loadbalance
-       }
-       xcc.test {
-           forward . <REPLACE_WITH_IP_OBTAINED_IN_PRIOR_STEP>
-           reload
-       }
-   EOF
-    )"
-    ```
-1. Perform the same steps in this section for `cluster-b`
+Repeat the steps above for `cluster-b`.
 
 ### Deploy a load balanced service to `cluster-a`
 
