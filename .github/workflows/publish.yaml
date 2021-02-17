@@ -2,7 +2,7 @@
 name: Publish Docker image
 on:
   workflow_run:
-    workflows: ["Test", "Check License"]
+    workflows: ["Test"]
     types:
       - completed
     branches:
