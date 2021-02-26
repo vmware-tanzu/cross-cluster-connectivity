@@ -135,7 +135,7 @@ var _ = Describe("CorefilePatcher", func() {
 		})
 	})
 
-	Context("when the system corefile configmap has a different capi-dns domain", func() {
+	Context("when the system corefile configmap has a different xcc-dns domain", func() {
 		BeforeEach(func() {
 			corednsConfigMap.Data["Corefile"] = strings.Join([]string{
 				".:53 {",
@@ -187,7 +187,7 @@ var _ = Describe("CorefilePatcher", func() {
 		})
 	})
 
-	Context("when the system corefile configmap has a different capi-dns IP", func() {
+	Context("when the system corefile configmap has a different xcc-dns IP", func() {
 		BeforeEach(func() {
 			corednsConfigMap.Data["Corefile"] = strings.Join([]string{
 				".:53 {",

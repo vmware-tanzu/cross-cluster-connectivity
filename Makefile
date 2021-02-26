@@ -71,24 +71,24 @@ e2e-load-dns-server-image:
 	kind load docker-image $(DNS_SERVER_IMAGE) --name $(CLUSTER_A)
 	kind load docker-image $(DNS_SERVER_IMAGE) --name $(CLUSTER_B)
 	kubectl --kubeconfig $(CLUSTER_A_KUBECONFIG) get pod \
-		-n capi-dns \
+		-n xcc-dns \
 		-l app=dns-server \
 		-o jsonpath={.items[0].metadata.name} \
-		| xargs -n1 kubectl --kubeconfig $(CLUSTER_A_KUBECONFIG) -n capi-dns delete pod
+		| xargs -n1 kubectl --kubeconfig $(CLUSTER_A_KUBECONFIG) -n xcc-dns delete pod
 	kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) get pod \
-		-n capi-dns \
+		-n xcc-dns \
 		-l app=dns-server \
 		-o jsonpath={.items[0].metadata.name} \
-		| xargs -n1 kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) -n capi-dns delete pod
+		| xargs -n1 kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) -n xcc-dns delete pod
 
 .PHONY: e2e-load-capi-dns-controller-image
 e2e-load-capi-dns-controller-image:
 	kind load docker-image $(CAPI_DNS_CONTROLLER_IMAGE) --name $(MANAGEMENT)
 	kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) get pod \
-		-n capi-dns \
+		-n xcc-dns \
 		-l app=capi-dns-controller \
 		-o jsonpath={.items[0].metadata.name} \
-		| xargs -n1 kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) -n capi-dns delete pod
+		| xargs -n1 kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) -n xcc-dns delete pod
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: generate

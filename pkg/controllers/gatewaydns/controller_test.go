@@ -85,7 +85,7 @@ var _ = Describe("Controller", func() {
 
 		log := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
 
-		namespace = "capi-dns"
+		namespace = "xcc-dns"
 		gatewayDNSReconciler = &gatewaydns.GatewayDNSReconciler{
 			Client:          managementClient,
 			Log:             log,

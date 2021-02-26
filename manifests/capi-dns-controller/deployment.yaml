@@ -2,19 +2,19 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: capi-dns
+  name: xcc-dns
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: capi-dns-controller
-  namespace: capi-dns
+  namespace: xcc-dns
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: capi-dns-controller
-  namespace: capi-dns
+  namespace: xcc-dns
   labels:
     app: capi-dns-controller
 spec:
@@ -51,7 +51,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: capi-dns-controller
-  namespace: capi-dns
+  namespace: xcc-dns
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
