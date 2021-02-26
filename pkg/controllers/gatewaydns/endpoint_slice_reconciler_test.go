@@ -61,7 +61,7 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			}
 			return clusterClient, nil
 		}
-		namespace = "capi-dns"
+		namespace = "xcc-dns"
 
 		ctrl.SetLogger(zap.New(
 			zap.UseDevMode(true),
@@ -298,12 +298,12 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 			existingEndpointSlices := make([]discoveryv1beta1.EndpointSlice, 2)
 			copy(existingEndpointSlices, endpointSlices)
 			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
-			existingEndpointSlices[1].Namespace = "not-capi-dns"
+			existingEndpointSlices[1].Namespace = "not-xcc-dns"
 			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			copy(existingEndpointSlices, endpointSlices)
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
-			existingEndpointSlices[1].Namespace = "not-capi-dns"
+			existingEndpointSlices[1].Namespace = "not-xcc-dns"
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[1])).ToNot(HaveOccurred())
 
 			onlyTheFirstEndpointSlice := endpointSlices[0:1]

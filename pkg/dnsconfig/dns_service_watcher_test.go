@@ -45,7 +45,7 @@ var _ = Describe("DNSServiceWatcher", func() {
 
 		dnsServiceWatcher = &dnsconfig.DNSServiceWatcher{
 			Client:      kubeClient,
-			Namespace:   "capi-dns",
+			Namespace:   "xcc-dns",
 			ServiceName: "dns-server",
 
 			PollingInterval: 2 * time.Millisecond,
@@ -67,7 +67,7 @@ var _ = Describe("DNSServiceWatcher", func() {
 	Context("when the CAPI DNS service is not found", func() {
 		It("returns an error", func() {
 			clusterIP, err := dnsServiceWatcher.GetDNSServiceClusterIP(ctx)
-			Expect(err).To(MatchError(`Timed out obtaining ClusterIP from service "capi-dns/dns-server": services "dns-server" not found`))
+			Expect(err).To(MatchError(`Timed out obtaining ClusterIP from service "xcc-dns/dns-server": services "dns-server" not found`))
 			Expect(clusterIP).To(BeEmpty())
 		})
 	})
@@ -79,7 +79,7 @@ var _ = Describe("DNSServiceWatcher", func() {
 			ctxCancel()
 
 			clusterIP, err := dnsServiceWatcher.GetDNSServiceClusterIP(ctx)
-			Expect(err).To(MatchError(`Timed out obtaining ClusterIP from service "capi-dns/dns-server": service "capi-dns/dns-server" does not have a ClusterIP`))
+			Expect(err).To(MatchError(`Timed out obtaining ClusterIP from service "xcc-dns/dns-server": service "xcc-dns/dns-server" does not have a ClusterIP`))
 			Expect(clusterIP).To(BeEmpty())
 		})
 	})
@@ -89,7 +89,7 @@ func startupDNSService(kubeClient client.Client, desiredClusterIP string) {
 	dnsServerService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dns-server",
-			Namespace: "capi-dns",
+			Namespace: "xcc-dns",
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "",

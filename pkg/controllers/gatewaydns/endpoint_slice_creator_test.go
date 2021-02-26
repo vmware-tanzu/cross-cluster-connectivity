@@ -83,10 +83,10 @@ var _ = Describe("Endpoint Slice Creator", func() {
 	})
 
 	It("Transforms Cluster Gateways into Endpoint Slices", func() {
-		endpointSlices := gatewaydns.ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, "capi-dns", "xcc.test")
+		endpointSlices := gatewaydns.ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, "xcc-dns", "xcc.test")
 		Expect(endpointSlices).To(HaveLen(3))
 		Expect(endpointSlices[0].Name).To(Equal("gateway-dns-namespace-foo-gateway"))
-		Expect(endpointSlices[0].Namespace).To(Equal("capi-dns"))
+		Expect(endpointSlices[0].Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlices[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.foo.gateway-dns-namespace.clusters.xcc.test"))
 		Expect(endpointSlices[0].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlices[0].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
@@ -94,7 +94,7 @@ var _ = Describe("Endpoint Slice Creator", func() {
 		Expect(endpointSlices[0].Endpoints[0].Addresses).To(ConsistOf("1.1.0.1"))
 
 		Expect(endpointSlices[1].Name).To(Equal("gateway-dns-namespace-bar-gateway"))
-		Expect(endpointSlices[1].Namespace).To(Equal("capi-dns"))
+		Expect(endpointSlices[1].Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlices[1].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.bar.gateway-dns-namespace.clusters.xcc.test"))
 		Expect(endpointSlices[1].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlices[1].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
@@ -102,7 +102,7 @@ var _ = Describe("Endpoint Slice Creator", func() {
 		Expect(endpointSlices[1].Endpoints[0].Addresses).To(ConsistOf("1.1.0.2"))
 
 		Expect(endpointSlices[2].Name).To(Equal("gateway-dns-namespace-baz-gateway"))
-		Expect(endpointSlices[2].Namespace).To(Equal("capi-dns"))
+		Expect(endpointSlices[2].Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlices[2].Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.baz.gateway-dns-namespace.clusters.xcc.test"))
 		Expect(endpointSlices[2].Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlices[2].AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
