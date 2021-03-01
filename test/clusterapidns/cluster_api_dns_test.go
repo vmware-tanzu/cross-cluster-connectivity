@@ -22,8 +22,12 @@ import (
 )
 
 var _ = Describe("ClusterAPI DNS Test", func() {
-	var certsDir string
-	var fqdn = "nginx.gateway.cluster-a.dev-team.clusters.xcc.test"
+	var (
+		certsDir            string
+		contourManifestPath string
+
+		fqdn = "nginx.gateway.cluster-a.dev-team.clusters.xcc.test"
+	)
 
 	BeforeEach(func() {
 		By("deploy nginx on cluster-a")
@@ -42,8 +46,11 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		err = ioutil.WriteFile(filepath.Join(certsDir, "key.pem"), key, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
+		contourManifestPath, err = updateDockerIOImageRepoToProxy(filepath.Join("..", "..", "manifests", "contour", "contour.yaml"))
+		Expect(err).NotTo(HaveOccurred(), "failed to replace docker.io with DOCKERHUB_PROXY value in contour.yaml")
+
 		By("ensuring contour is deployed")
-		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
+		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", contourManifestPath)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("deploying nginx to cluster-a")
@@ -56,7 +63,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 			"delete", "-f", filepath.Join("..", "..", "manifests", "example", "dev-team-gateway-dns.yaml"))
 
 		By("restoring contour on cluster-a")
-		_, _ = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
+		_, _ = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", contourManifestPath)
 
 		Expect(os.RemoveAll(certsDir)).To(Succeed())
 	})
@@ -167,7 +174,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 		}, 65*time.Second, kubectlInterval).Should(ContainSubstring("Could not resolve host"))
 
 		By("restoring contour on cluster-a")
-		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", filepath.Join("..", "..", "manifests", "contour"))
+		_, err = kubectlWithConfig(clusterAKubeConfig, "apply", "-f", contourManifestPath)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating that the wildcard DNS name resolves on cluster-a")
@@ -215,8 +222,11 @@ func deployNginx(kubeconfig, certsDir, clusterHeaderValue string) {
 
 	Expect(os.RemoveAll(nginxConfFile.Name())).NotTo(HaveOccurred())
 
+	nginxManifestPath, err := updateDockerIOImageRepoToProxy(filepath.Join("..", "..", "manifests", "example", "nginx", "nginx.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
 	_, err = kubectlWithConfig(kubeconfig,
-		"apply", "-f", filepath.Join("..", "..", "manifests", "example", "nginx", "nginx.yaml"))
+		"apply", "-f", nginxManifestPath)
 	Expect(err).NotTo(HaveOccurred())
 
 	_, err = kubectlWithConfig(kubeconfig,
@@ -273,4 +283,30 @@ func generateCert(fqdn string) (cert []byte, key []byte, err error) {
 	key = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
 
 	return
+}
+
+func updateDockerIOImageRepoToProxy(manifestPath string) (string, error) {
+	if dockerhubProxy == "" {
+		return manifestPath, nil
+	}
+
+	manifest, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return "", err
+	}
+
+	updatedManifest := strings.Replace(string(manifest), "docker.io", dockerhubProxy, -1)
+
+	manifestFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return "", err
+	}
+	defer manifestFile.Close()
+
+	_, err = manifestFile.Write([]byte(updatedManifest))
+	if err != nil {
+		return "", err
+	}
+
+	return manifestFile.Name(), nil
 }
