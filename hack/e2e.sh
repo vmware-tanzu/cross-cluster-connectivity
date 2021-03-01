@@ -79,6 +79,8 @@ DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
 XCC_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/xcc-dns-controller:${IMAGE_TAG}
 DNS_CONFIG_PATCHER_IMAGE=${IMAGE_REGISTRY}/dns-config-patcher:${IMAGE_TAG}
 
+DOCKERHUB_PROXY="${DOCKERHUB_PROXY:-docker.io}"
+
 CLUSTER_A="cluster-a"
 CLUSTER_B="cluster-b"
 
@@ -262,23 +264,18 @@ function wait_for_external_ips() {
 
 function install_cert_manager_and_metatallb() {
   local clustername="${1}"
-  local kubeconfig_path="${ROOT_DIR}/${clustername}.kubeconfig"
-
-  # Do not quote clusterkubectl when using it to allow for the correct
-  # expansion.
-  clusterkubectl="kubectl --kubeconfig=${kubeconfig_path}"
 
   msg "Deploying cert-manager on cluster ${clustername}"
-  ${clusterkubectl} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
+  kubectl --kubeconfig "${clustername}.kubeconfig" apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.3/cert-manager.yaml
 
   msg "Deploying metallb on cluster ${clustername}"
-  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
-  ${clusterkubectl} apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
-  ${clusterkubectl} create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+  update_image_repo_and_kubectl_apply "${clustername}" https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/namespace.yaml
+  update_image_repo_and_kubectl_apply "${clustername}" https://raw.githubusercontent.com/metallb/metallb/v0.9.5/manifests/metallb.yaml
+  kubectl --kubeconfig "${clustername}.kubeconfig" create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
   # Each cluster needs to give metallb a config with a CIDR for services it exposes.
   # The clusters are sharing the address space, so they need non-overalpping
   # ranges assigned to each cluster.
-  ${clusterkubectl} apply -f "${SCRIPTS_DIR}/metallb/config-${clustername}.yaml"
+  kubectl --kubeconfig "${clustername}.kubeconfig" apply -f "${SCRIPTS_DIR}/metallb/config-${clustername}.yaml"
 }
 
 function e2e_up() {
@@ -294,7 +291,7 @@ function e2e_up() {
     wait_and_patch_kubeconfig "dev-team" "${cluster}"
     wait_for_lb_and_control_plane "${cluster}"
     msg "Installing calico on ${cluster}"
-    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+    update_image_repo_and_kubectl_apply "${cluster}" https://docs.projectcalico.org/v3.8/manifests/calico.yaml
   done
 
 
@@ -312,7 +309,9 @@ function e2e_up() {
 
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     msg "Installing Contour on ${cluster}"
-    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f manifests/contour/
+    cat manifests/contour/*.yaml | \
+      sed "s~image: docker.io/\(.*\)$~image: ${DOCKERHUB_PROXY}/\1~" | \
+      kubectl --kubeconfig "${cluster}.kubeconfig" apply -f -
     kubectl_mgc -n dev-team label cluster "${cluster}" hasContour=true --overwrite
   done
 
@@ -347,6 +346,14 @@ function e2e_down() {
       echo "kind cluster ${KIND_MANAGEMENT_CLUSTER} deleted."
   fi
   return 0
+}
+
+function update_image_repo_and_kubectl_apply() {
+  cluster=$1
+  resourceURL=$2
+  curl -L "${resourceURL}"| \
+    sed "s~image: \(.*\)$~image: ${DOCKERHUB_PROXY}/\1~" | \
+    kubectl --kubeconfig "${cluster}.kubeconfig" apply -f -
 }
 
 ################################################################################

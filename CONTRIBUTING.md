@@ -34,7 +34,9 @@ make build-images
 ```
 
 These images can then be deployed into a set of
-[Kind](https://kind.sigs.k8s.io/) clusters by running:
+[Kind](https://kind.sigs.k8s.io/) clusters by running (NOTE: If you are
+encountering rate limiting issues with Docker Hub you can specify
+`DOCKERHUB_PROXY` to use a mirror):
 
 ```
 make e2e-up

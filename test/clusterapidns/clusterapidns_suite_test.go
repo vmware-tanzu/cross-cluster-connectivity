@@ -43,6 +43,7 @@ func kubectlWithConfig(kubeConfigPath string, args ...string) ([]byte, error) {
 var managementKubeConfig = os.Getenv("MANAGEMENT_KUBECONFIG")
 var clusterAKubeConfig = os.Getenv("CLUSTER_A_KUBECONFIG")
 var clusterBKubeConfig = os.Getenv("CLUSTER_B_KUBECONFIG")
+var dockerhubProxy = os.Getenv("DOCKERHUB_PROXY")
 
 var _ = BeforeSuite(func() {
 	if len(managementKubeConfig) == 0 {
