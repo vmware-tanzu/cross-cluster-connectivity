@@ -76,7 +76,7 @@ IMAGE_REGISTRY="${IMAGE_REGISTRY:-gcr.io/tanzu-xcc}"
 IMAGE_TAG="${IMAGE_TAG:-dev}"
 
 DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
-CAPI_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/capi-dns-controller:${IMAGE_TAG}
+XCC_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/xcc-dns-controller:${IMAGE_TAG}
 DNS_CONFIG_PATCHER_IMAGE=${IMAGE_REGISTRY}/dns-config-patcher:${IMAGE_TAG}
 
 CLUSTER_A="cluster-a"
@@ -162,9 +162,9 @@ function setup_management_cluster() {
     -n capd-system \
     --for=condition=Available --timeout=300s
 
-  kind load docker-image "${CAPI_DNS_CONTROLLER_IMAGE}" --name "${KIND_MANAGEMENT_CLUSTER}"
+  kind load docker-image "${XCC_DNS_CONTROLLER_IMAGE}" --name "${KIND_MANAGEMENT_CLUSTER}"
   kubectl_mgc apply -f "./manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml"
-  kubectl_mgc apply -f "./manifests/capi-dns-controller/deployment.yaml"
+  kubectl_mgc apply -f "./manifests/xcc-dns-controller/deployment.yaml"
 
   local kubeconfig_path="${ROOT_DIR}/${KIND_MANAGEMENT_CLUSTER}.kubeconfig"
   kind get kubeconfig --name management > "${kubeconfig_path}"

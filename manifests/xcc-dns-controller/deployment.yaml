@@ -7,30 +7,30 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: capi-dns-controller
+  name: xcc-dns-controller
   namespace: xcc-dns
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: capi-dns-controller
+  name: xcc-dns-controller
   namespace: xcc-dns
   labels:
-    app: capi-dns-controller
+    app: xcc-dns-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: capi-dns-controller
+      app: xcc-dns-controller
   template:
     metadata:
       labels:
-        app: capi-dns-controller
+        app: xcc-dns-controller
     spec:
-      serviceAccountName: capi-dns-controller
+      serviceAccountName: xcc-dns-controller
       containers:
-      - name: capi-dns-controller
-        image: gcr.io/tanzu-xcc/capi-dns-controller:dev
+      - name: xcc-dns-controller
+        image: gcr.io/tanzu-xcc/xcc-dns-controller:dev
         args: []
         env:
         - name: NAMESPACE
@@ -43,20 +43,20 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: capi-dns-controller
+  name: xcc-dns-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: capi-dns-controller
+  name: xcc-dns-controller
 subjects:
 - kind: ServiceAccount
-  name: capi-dns-controller
+  name: xcc-dns-controller
   namespace: xcc-dns
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: capi-dns-controller
+  name: xcc-dns-controller
 rules:
 - apiGroups:
   - "cluster.x-k8s.io"

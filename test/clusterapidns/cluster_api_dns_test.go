@@ -72,9 +72,9 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 			By(fmt.Sprintf("Collecting logs after failed test in %s", tempDir))
 
-			output, err := kubectlWithConfig(managementKubeConfig, "-n", "xcc-dns", "logs", "-l", "app=capi-dns-controller", "--tail", "-1")
+			output, err := kubectlWithConfig(managementKubeConfig, "-n", "xcc-dns", "logs", "-l", "app=xcc-dns-controller", "--tail", "-1")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(ioutil.WriteFile(filepath.Join(tempDir, "management-capi-dns-controller.log"), output, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(tempDir, "management-xcc-dns-controller.log"), output, 0644)).To(Succeed())
 
 			output, err = kubectlWithConfig(clusterAKubeConfig, "-n", "xcc-dns", "logs", "-l", "app=dns-server", "--tail", "-1")
 			Expect(err).NotTo(HaveOccurred())
