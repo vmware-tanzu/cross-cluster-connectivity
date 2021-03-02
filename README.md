@@ -50,17 +50,17 @@ This walkthrough assumes:
    kubectl --kubeconfig management.kubeconfig \
       apply -f manifests/crds/connectivity.tanzu.vmware.com_gatewaydns.yaml
    ```
-1. Install `capi-dns-controller` on the management cluster
+1. Install `xcc-dns-controller` on the management cluster
    ```bash
    kubectl  --kubeconfig management.kubeconfig \
-      apply -f manifests/capi-dns-controller/deployment.yaml
+      apply -f manifests/xcc-dns-controller/deployment.yaml
    ```
 
    Note: by default, this manifest configures the controller to generate
    cross-cluster DNS records with the suffix `xcc.test`.
    To use a different suffix, customize your deployment yaml, e.g.
    ```bash
-   cat manifests/capi-dns-controller/deployment.yaml \
+   cat manifests/xcc-dns-controller/deployment.yaml \
       | sed 's/xcc\.test/multi-cluster.example.com/g' \
       | kubectl --kubeconfig management.kubeconfig apply -f -
    ```
@@ -120,7 +120,7 @@ Repeat the steps above for `cluster-b`.
    ```
 
    The GatewayDNS's spec has a `clusterSelector` that tells the
-   `capi-dns-controller` which clusters shall be watched for services. The
+   `xcc-dns-controller` which clusters shall be watched for services. The
    controller will look for a service with the namespace/name of `service`. In
    this example, Contour runs a service in the `projectcontour/envoy`
    namespace/name. The `resolutionType` in this example's service is type

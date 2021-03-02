@@ -2,7 +2,7 @@ IMAGE_REGISTRY ?= gcr.io/tanzu-xcc
 IMAGE_TAG ?= dev
 
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)
-CAPI_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/capi-dns-controller:$(IMAGE_TAG)
+XCC_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/xcc-dns-controller:$(IMAGE_TAG)
 DNS_CONFIG_PATCHER_IMAGE := $(IMAGE_REGISTRY)/dns-config-patcher:$(IMAGE_TAG)
 
 CLUSTER_A := "cluster-a"
@@ -44,7 +44,7 @@ test-cluster-api-dns:
 	ginkgo -v $(PWD)/test/clusterapidns
 
 .PHONY: build-images
-build-images: build-dns-server build-capi-dns-controller build-dns-config-patcher
+build-images: build-dns-server build-xcc-dns-controller build-dns-config-patcher
 
 .PHONY: build-dns-server
 build-dns-server:
@@ -54,12 +54,12 @@ build-dns-server:
 build-dns-config-patcher:
 	docker build -f cmd/dns-config-patcher/Dockerfile -t $(DNS_CONFIG_PATCHER_IMAGE) .
 
-.PHONY: build-capi-dns-controller
-build-capi-dns-controller:
-	docker build -f cmd/capi-dns-controller/Dockerfile -t $(CAPI_DNS_CONTROLLER_IMAGE) .
+.PHONY: build-xcc-dns-controller
+build-xcc-dns-controller:
+	docker build -f cmd/xcc-dns-controller/Dockerfile -t $(XCC_DNS_CONTROLLER_IMAGE) .
 
 .PHONY: e2e-load-images
-e2e-load-images: e2e-load-dns-server-image e2e-load-capi-dns-controller-image e2e-load-dns-config-patcher-image
+e2e-load-images: e2e-load-dns-server-image e2e-load-xcc-dns-controller-image e2e-load-dns-config-patcher-image
 
 .PHONY: e2e-load-dns-config-patcher-image
 e2e-load-dns-config-patcher-image:
@@ -81,12 +81,12 @@ e2e-load-dns-server-image:
 		-o jsonpath={.items[0].metadata.name} \
 		| xargs -n1 kubectl --kubeconfig $(CLUSTER_B_KUBECONFIG) -n xcc-dns delete pod
 
-.PHONY: e2e-load-capi-dns-controller-image
-e2e-load-capi-dns-controller-image:
-	kind load docker-image $(CAPI_DNS_CONTROLLER_IMAGE) --name $(MANAGEMENT)
+.PHONY: e2e-load-xcc-dns-controller-image
+e2e-load-xcc-dns-controller-image:
+	kind load docker-image $(XCC_DNS_CONTROLLER_IMAGE) --name $(MANAGEMENT)
 	kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) get pod \
 		-n xcc-dns \
-		-l app=capi-dns-controller \
+		-l app=xcc-dns-controller \
 		-o jsonpath={.items[0].metadata.name} \
 		| xargs -n1 kubectl --kubeconfig $(MANAGEMENT_KUBECONFIG) -n xcc-dns delete pod
 

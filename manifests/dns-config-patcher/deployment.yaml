@@ -62,7 +62,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: capi-dns-service-watcher
+  name: xcc-dns-service-watcher
 subjects:
 - kind: ServiceAccount
   name: dns-config-patcher
@@ -83,7 +83,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: capi-dns-service-watcher
+  name: xcc-dns-service-watcher
   namespace: xcc-dns
 rules:
 - apiGroups: [""]

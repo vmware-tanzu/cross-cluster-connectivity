@@ -9,8 +9,8 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 COPY apis/ apis/
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/capi-dns-controller ./cmd/capi-dns-controller/
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/xcc-dns-controller ./cmd/xcc-dns-controller/
 
 FROM scratch AS final
-COPY --from=build /bin/capi-dns-controller /bin/capi-dns-controller
-ENTRYPOINT ["/bin/capi-dns-controller"]
+COPY --from=build /bin/xcc-dns-controller /bin/xcc-dns-controller
+ENTRYPOINT ["/bin/xcc-dns-controller"]

@@ -64,7 +64,7 @@ var _ = Describe("DNSServiceWatcher", func() {
 		Expect(clusterIP).To(Equal(dnsServiceClusterIP))
 	})
 
-	Context("when the CAPI DNS service is not found", func() {
+	Context("when the XCC DNS service is not found", func() {
 		It("returns an error", func() {
 			clusterIP, err := dnsServiceWatcher.GetDNSServiceClusterIP(ctx)
 			Expect(err).To(MatchError(`Timed out obtaining ClusterIP from service "xcc-dns/dns-server": services "dns-server" not found`))
@@ -72,7 +72,7 @@ var _ = Describe("DNSServiceWatcher", func() {
 		})
 	})
 
-	Context("when the CAPI DNS service does not acquire a ClusterIP before the context is done", func() {
+	Context("when the XCC DNS service does not acquire a ClusterIP before the context is done", func() {
 		It("does not modify the system Corefile", func() {
 			startupDNSService(kubeClient, dnsServiceClusterIP)
 
