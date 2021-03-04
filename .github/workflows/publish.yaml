@@ -15,11 +15,11 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
-      - name: Docker meta for capi-dns-controller
-        id: docker_meta_capi_dns_controller
+      - name: Docker meta for xcc-dns-controller
+        id: docker_meta_xcc_dns_controller
         uses: crazy-max/ghaction-docker-meta@v1
         with:
-          images: gcr.io/tanzu-xcc/capi-dns-controller
+          images: gcr.io/tanzu-xcc/xcc-dns-controller
           tag-sha: true
           tag-custom: dev
       - name: Docker meta for dns-server
@@ -44,13 +44,13 @@ jobs:
           registry: gcr.io
           username: "${{ secrets.GCR_USERNAME }}"
           password: "${{ secrets.GCR_SECRET }}"
-      - name: Build and push capi-dns-controller
+      - name: Build and push xcc-dns-controller
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./cmd/capi-dns-controller/Dockerfile
+          file: ./cmd/xcc-dns-controller/Dockerfile
           push: true
-          tags: "${{ steps.docker_meta_capi_dns_controller.outputs.tags }}"
+          tags: "${{ steps.docker_meta_xcc_dns_controller.outputs.tags }}"
       - name: Build and push dns-server
         uses: docker/build-push-action@v2
         with:
