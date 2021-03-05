@@ -26,8 +26,8 @@ type EndpointSliceReconciler struct {
 	Log            logr.Logger
 }
 
-func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.Context,
-	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) []error {
+func (e *EndpointSliceReconciler) ConvergeToClusters(ctx context.Context,
+	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredClusterGateways []ClusterGateway) []error {
 	var errors []error
 
 	for _, cluster := range clusters {
@@ -54,7 +54,7 @@ func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.C
 			}
 		}
 
-		err = e.convergeCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
+		err = e.convergeCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredClusterGateways)
 		if err != nil {
 			log.Error(err, "Failed to converge EndpointSlices")
 			errors = append(errors, err)
@@ -65,8 +65,8 @@ func (e *EndpointSliceReconciler) ConvergeEndpointSlicesToClusters(ctx context.C
 	return errors
 }
 
-func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.Logger, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) error {
-	clusterDiff, err := e.diffCluster(ctx, gatewayDNSNamespacedName, clusterClient, desiredEndpointSlices)
+func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.Logger, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredClusterGateways []ClusterGateway) error {
+	clusterDiff, err := e.diffCluster(ctx, log, gatewayDNSNamespacedName, clusterClient, desiredClusterGateways)
 	if err != nil {
 		return err
 	}
@@ -122,55 +122,65 @@ type ClusterDiff struct {
 	changed   []discoveryv1beta1.EndpointSlice
 }
 
-func (e *EndpointSliceReconciler) diffCluster(ctx context.Context, gatewayDNSNamespacedName types.NamespacedName, clusterClient client.Client, desiredEndpointSlices []discoveryv1beta1.EndpointSlice) (ClusterDiff, error) {
+func (e *EndpointSliceReconciler) diffCluster(ctx context.Context,
+	log logr.Logger,
+	gatewayDNSNamespacedName types.NamespacedName,
+	clusterClient client.Client,
+	desiredClusterGateways []ClusterGateway) (ClusterDiff, error) {
+
 	existingEndpointSliceList := &discoveryv1beta1.EndpointSliceList{}
 	err := clusterClient.List(ctx, existingEndpointSliceList, client.InNamespace(e.Namespace))
 	if err != nil {
 		return ClusterDiff{}, err
 	}
 
-	existingEndpointSliceMap := make(map[string]discoveryv1beta1.EndpointSlice)
-	for _, item := range existingEndpointSliceList.Items {
-		if _, ok := item.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]; !ok {
+	existingEndpointSliceMap := make(map[string]discoveryv1beta1.EndpointSlice, len(existingEndpointSliceList.Items))
+	for _, existingEndpointSlice := range existingEndpointSliceList.Items {
+		if _, ok := existingEndpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]; !ok {
 			continue
 		}
 
-		existingGatewayDNSNamespacedName, ok := item.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]
+		existingGatewayDNSNamespacedName, ok := existingEndpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]
 		if !ok || existingGatewayDNSNamespacedName != gatewayDNSNamespacedName.String() {
 			continue
 		}
 
-		existingEndpointSliceMap[endpointSliceKey(item)] = item
+		existingEndpointSliceMap[EndpointSliceKey(existingEndpointSlice)] = existingEndpointSlice
 	}
 
-	desiredEndpointSliceMap := make(map[string]discoveryv1beta1.EndpointSlice)
-	for _, item := range desiredEndpointSlices {
-		desiredEndpointSliceMap[endpointSliceKey(item)] = item
+	desiredClusterGatwayMap := make(map[string]ClusterGateway, len(desiredClusterGateways))
+	for _, desiredClusterGateway := range desiredClusterGateways {
+		desiredClusterGatwayMap[desiredClusterGateway.EndpointSliceKey()] = desiredClusterGateway
 	}
 
 	clusterDiff := ClusterDiff{}
-	for _, item := range desiredEndpointSliceMap {
-		if existingItem, ok := existingEndpointSliceMap[endpointSliceKey(item)]; ok {
-			if !compareEndpointSlices(item, existingItem) {
-				existingItem = merge(item, existingItem)
+	for _, desiredClusterGateway := range desiredClusterGatwayMap {
+		if desiredClusterGateway.Unreachable {
+			continue
+		}
+		desiredEndpointSlice := desiredClusterGateway.ToEndpointSlice()
+		if existingItem, ok := existingEndpointSliceMap[desiredClusterGateway.EndpointSliceKey()]; ok {
+			if !compareEndpointSlices(desiredEndpointSlice, existingItem) {
+				existingItem = merge(desiredEndpointSlice, existingItem)
 				clusterDiff.changed = append(clusterDiff.changed, existingItem)
 			}
 		} else {
-			clusterDiff.missing = append(clusterDiff.missing, item)
+			clusterDiff.missing = append(clusterDiff.missing, desiredEndpointSlice)
 		}
 	}
 
-	for _, item := range existingEndpointSliceMap {
-		if _, ok := desiredEndpointSliceMap[endpointSliceKey(item)]; !ok {
-			clusterDiff.undesired = append(clusterDiff.undesired, item)
+	for _, existingEndpointSlice := range existingEndpointSliceMap {
+		desiredClusterGateway, ok := desiredClusterGatwayMap[EndpointSliceKey(existingEndpointSlice)]
+		if ok {
+			if desiredClusterGateway.Unreachable {
+				log.Info("Skipping delete of undexpected EdpointSlice, unable to query for Gateway's existence", "EndpointSlice", existingEndpointSlice, "Gatewa Cluster", desiredClusterGateway.ClusterName)
+			}
+			continue
 		}
+		clusterDiff.undesired = append(clusterDiff.undesired, existingEndpointSlice)
 	}
 
 	return clusterDiff, nil
-}
-
-func endpointSliceKey(endpointSlice discoveryv1beta1.EndpointSlice) string {
-	return fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name)
 }
 
 func merge(source, dest discoveryv1beta1.EndpointSlice) discoveryv1beta1.EndpointSlice {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,8 +37,6 @@ type GatewayDNSReconciler struct {
 	ClusterSearcher         *ClusterSearcher
 	EndpointSliceReconciler *EndpointSliceReconciler
 	ClusterGatewayCollector *ClusterGatewayCollector
-	Namespace               string
-	DomainSuffix            string
 
 	// PollingInterval defaults to 30 seconds if not provided
 	PollingInterval time.Duration
@@ -60,7 +57,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	var gatewayDNS connectivityv1alpha1.GatewayDNS
 	if err := r.Client.Get(ctx, req.NamespacedName, &gatewayDNS); err != nil {
 		if k8serrors.IsNotFound(err) {
-			err := r.convergeEndpointsSlicesOnClustersForGatewayDNS(ctx, req.NamespacedName, nil)
+			err := r.convergeOnClustersForGatewayDNS(ctx, req.NamespacedName, nil)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -79,15 +76,9 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	log.Info("Found matching Clusters", "Total", len(clustersWithEndpoints), "Clusters", clustersToNames(clustersWithEndpoints))
 
-	clusterGateways, err := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
-	if err != nil {
-		log.Error(err, "Failed to get gateways for Clusters")
-		return ctrl.Result{}, err
-	}
+	clusterGateways := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
 
-	endpointSlices := ConvertGatewaysToEndpointSlices(clusterGateways, gatewayDNS, r.Namespace, r.DomainSuffix)
-
-	err = r.convergeEndpointsSlicesOnClustersForGatewayDNS(ctx, req.NamespacedName, endpointSlices)
+	err = r.convergeOnClustersForGatewayDNS(ctx, req.NamespacedName, clusterGateways)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -96,7 +87,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ctx context.Context, namespacedName types.NamespacedName, endpointSlices []discoveryv1beta1.EndpointSlice) error {
+func (r *GatewayDNSReconciler) convergeOnClustersForGatewayDNS(ctx context.Context, namespacedName types.NamespacedName, clusterGateways []ClusterGateway) error {
 	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
 	err := r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(namespacedName.Namespace))
 	if err != nil {
@@ -104,7 +95,7 @@ func (r *GatewayDNSReconciler) convergeEndpointsSlicesOnClustersForGatewayDNS(ct
 		return err
 	}
 
-	errs := r.EndpointSliceReconciler.ConvergeEndpointSlicesToClusters(ctx, clustersInGatewayDNSNamespace.Items, namespacedName, endpointSlices)
+	errs := r.EndpointSliceReconciler.ConvergeToClusters(ctx, clustersInGatewayDNSNamespace.Items, namespacedName, clusterGateways)
 	if len(errs) > 0 {
 		return errors.New("Failed to converge EndpointSlices")
 	}
