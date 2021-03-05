@@ -94,8 +94,6 @@ func main() {
 	if err = (&gatewaydns.GatewayDNSReconciler{
 		Client:          client,
 		Log:             reconcilerLog,
-		Namespace:       namespace,
-		DomainSuffix:    domainSuffix,
 		PollingInterval: gatewayDNSPollingIntervalDuration,
 		Scheme:          mgr.GetScheme(),
 		ClientProvider:  clusterCacheTracker,
@@ -108,6 +106,8 @@ func main() {
 		ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 			Log:            reconcilerLog.WithName("EndpointSliceCollector"),
 			ClientProvider: clusterCacheTracker,
+			Namespace:      namespace,
+			DomainSuffix:   domainSuffix,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatewayDNS")

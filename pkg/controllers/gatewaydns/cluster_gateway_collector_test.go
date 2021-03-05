@@ -162,12 +162,11 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("the gateway for the cluster is returned", func() {
-				gateways, err := clusterGatewayCollector.GetGatewaysForClusters(
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
 					context.Background(),
 					*gatewayDNS,
 					clusters,
 				)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(gateways).To(HaveLen(2))
 				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
 				Expect(gateways[0].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
@@ -179,6 +178,53 @@ var _ = Describe("Cluster Gateway Collector", func() {
 			})
 		})
 
+		Context("when searching a client for services fails", func() {
+			var fakeClusterClient *gatewaydnsfakes.FakeClient
+			BeforeEach(func() {
+				fakeClusterClient = &gatewaydnsfakes.FakeClient{}
+				fakeClusterClient.GetReturns(errors.New("something bad happened"))
+				clusterClients["some-namespace/cluster-name-0"] = fakeClusterClient
+
+				err := clusterClient1.Create(context.Background(), gatewayService1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns a GatewayCluster marked Unreachable", func() {
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
+					context.Background(),
+					*gatewayDNS,
+					clusters,
+				)
+				Expect(gateways).To(HaveLen(2))
+				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
+				Expect(gateways[0].Unreachable).To(BeTrue())
+
+				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+				Expect(gateways[1].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.5"))
+			})
+		})
+
+		Context("when getting a cluster client fails", func() {
+			BeforeEach(func() {
+				clientProvider.GetClientStub = func(ctx context.Context, namespacedName types.NamespacedName) (client.Client, error) {
+					return nil, errors.New("error getting client")
+				}
+			})
+			It("returns a GatewayCluster marked Unreachable", func() {
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
+					context.Background(),
+					*gatewayDNS,
+					clusters,
+				)
+				Expect(gateways).To(HaveLen(2))
+				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
+				Expect(gateways[0].Unreachable).To(BeTrue())
+
+				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].Unreachable).To(BeTrue())
+			})
+		})
+
 		Context("when the gateway service name does not match the spec", func() {
 			BeforeEach(func() {
 				gatewayService0.ObjectMeta.Name = "some-other-name"
@@ -186,12 +232,11 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
-				gateways, err := clusterGatewayCollector.GetGatewaysForClusters(
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
 					context.Background(),
 					*gatewayDNS,
 					clusters,
 				)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(gateways).To(HaveLen(0))
 			})
 		})
@@ -203,12 +248,11 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
-				gateways, err := clusterGatewayCollector.GetGatewaysForClusters(
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
 					context.Background(),
 					*gatewayDNS,
 					clusters,
 				)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(gateways).To(HaveLen(0))
 			})
 		})
@@ -220,12 +264,11 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
-				gateways, err := clusterGatewayCollector.GetGatewaysForClusters(
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
 					context.Background(),
 					*gatewayDNS,
 					clusters,
 				)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(gateways).To(HaveLen(0))
 			})
 		})
@@ -237,12 +280,11 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("does not get returned", func() {
-				gateways, err := clusterGatewayCollector.GetGatewaysForClusters(
+				gateways := clusterGatewayCollector.GetGatewaysForClusters(
 					context.Background(),
 					*gatewayDNS,
 					clusters,
 				)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(gateways).To(HaveLen(0))
 			})
 		})

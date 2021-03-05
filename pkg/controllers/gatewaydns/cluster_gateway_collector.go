@@ -20,33 +20,39 @@ import (
 type ClusterGatewayCollector struct {
 	Log            logr.Logger
 	ClientProvider clientProvider
-}
-
-type ClusterGateway struct {
-	ClusterName string
-	Gateway     corev1.Service
+	DomainSuffix   string
+	Namespace      string
 }
 
 func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 	gatewayDNS connectivityv1alpha1.GatewayDNS,
-	clusters []clusterv1alpha3.Cluster) ([]ClusterGateway, error) {
+	clusters []clusterv1alpha3.Cluster) []ClusterGateway {
 
 	gatewayDNSSpecService := newNamespacedNameFromString(gatewayDNS.Spec.Service)
 
 	var clusterGateways []ClusterGateway
 	for _, cluster := range clusters {
 		service, err := e.getLoadBalancerServiceForCluster(ctx, gatewayDNSSpecService, cluster)
-		if err != nil {
-			return []ClusterGateway{}, err
+		clusterGateway := ClusterGateway{
+			ClusterName:         cluster.ObjectMeta.Name,
+			Unreachable:         err != nil,
+			DomainSuffix:        e.DomainSuffix,
+			ControllerNamespace: e.Namespace,
+			GatewayDNSNamespacedName: types.NamespacedName{
+				Namespace: gatewayDNS.Namespace,
+				Name:      gatewayDNS.Name,
+			},
 		}
 		if service != nil {
-			clusterGateways = append(clusterGateways, ClusterGateway{
-				ClusterName: cluster.ObjectMeta.Name,
-				Gateway:     *service,
-			})
+			clusterGateway.Gateway = service
+		}
+
+		if err != nil || service != nil {
+			clusterGateways = append(clusterGateways, clusterGateway)
 		}
 	}
-	return clusterGateways, nil
+
+	return clusterGateways
 }
 
 func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.Context,
@@ -59,6 +65,7 @@ func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.C
 		Name:      cluster.Name,
 	})
 	if err != nil {
+		log.Error(err, "Failed to get ClusterClient")
 		return nil, err
 	}
 
@@ -69,6 +76,7 @@ func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.C
 			log.Error(err, "Expected Service not found", "Service", serviceNamespacedName.String())
 			return nil, nil
 		}
+		log.Error(err, "Failed to get Service on Cluster", "Service", serviceNamespacedName.String())
 		return nil, err // not tested
 	}
 

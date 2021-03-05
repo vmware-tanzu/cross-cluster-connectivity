@@ -91,8 +91,6 @@ var _ = Describe("Controller", func() {
 			Log:             log,
 			Scheme:          managementClient.Scheme(),
 			ClientProvider:  clientProvider,
-			Namespace:       namespace,
-			DomainSuffix:    "xcc.test",
 			ClusterSearcher: &gatewaydns.ClusterSearcher{Client: managementClient},
 			EndpointSliceReconciler: &gatewaydns.EndpointSliceReconciler{
 				Log:            log,
@@ -102,6 +100,8 @@ var _ = Describe("Controller", func() {
 			ClusterGatewayCollector: &gatewaydns.ClusterGatewayCollector{
 				Log:            log,
 				ClientProvider: clientProvider,
+				Namespace:      namespace,
+				DomainSuffix:   "xcc.test",
 			},
 			PollingInterval: time.Millisecond,
 		}
