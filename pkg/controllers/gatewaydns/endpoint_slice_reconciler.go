@@ -173,7 +173,7 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context,
 		desiredClusterGateway, ok := desiredClusterGatwayMap[EndpointSliceKey(existingEndpointSlice)]
 		if ok {
 			if desiredClusterGateway.Unreachable {
-				log.Info("Skipping delete of undexpected EdpointSlice, unable to query for Gateway's existence", "EndpointSlice", existingEndpointSlice, "Gatewa Cluster", desiredClusterGateway.ClusterName)
+				log.Info("Skipping delete of unexpected EndpointSlice, unable to query for Gateway's existence", "EndpointSlice", existingEndpointSlice, "Gateway Cluster", desiredClusterGateway.ClusterNamespacedName.String())
 			}
 			continue
 		}

@@ -34,7 +34,10 @@ func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 	for _, cluster := range clusters {
 		service, err := e.getLoadBalancerServiceForCluster(ctx, gatewayDNSSpecService, cluster)
 		clusterGateway := ClusterGateway{
-			ClusterName:         cluster.ObjectMeta.Name,
+			ClusterNamespacedName: types.NamespacedName{
+				Namespace: cluster.Namespace,
+				Name:      cluster.Name,
+			},
 			Unreachable:         err != nil,
 			DomainSuffix:        e.DomainSuffix,
 			ControllerNamespace: e.Namespace,
