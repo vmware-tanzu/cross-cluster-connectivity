@@ -168,11 +168,13 @@ var _ = Describe("Cluster Gateway Collector", func() {
 					clusters,
 				)
 				Expect(gateways).To(HaveLen(2))
-				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
+				Expect(gateways[0].ClusterNamespacedName.Name).To(Equal(clusters[0].Name))
+				Expect(gateways[0].ClusterNamespacedName.Namespace).To(Equal(clusters[0].Namespace))
 				Expect(gateways[0].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
 				Expect(gateways[0].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.4"))
 
-				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].ClusterNamespacedName.Name).To(Equal(clusters[1].Name))
+				Expect(gateways[1].ClusterNamespacedName.Namespace).To(Equal(clusters[1].Namespace))
 				Expect(gateways[1].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
 				Expect(gateways[1].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.5"))
 			})
@@ -195,10 +197,12 @@ var _ = Describe("Cluster Gateway Collector", func() {
 					clusters,
 				)
 				Expect(gateways).To(HaveLen(2))
-				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
+				Expect(gateways[0].ClusterNamespacedName.Name).To(Equal(clusters[0].Name))
+				Expect(gateways[0].ClusterNamespacedName.Namespace).To(Equal(clusters[0].Namespace))
 				Expect(gateways[0].Unreachable).To(BeTrue())
 
-				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].ClusterNamespacedName.Name).To(Equal(clusters[1].Name))
+				Expect(gateways[1].ClusterNamespacedName.Namespace).To(Equal(clusters[1].Namespace))
 				Expect(gateways[1].Gateway.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
 				Expect(gateways[1].Gateway.Status.LoadBalancer.Ingress[0].IP).To(Equal("1.2.3.5"))
 			})
@@ -217,10 +221,10 @@ var _ = Describe("Cluster Gateway Collector", func() {
 					clusters,
 				)
 				Expect(gateways).To(HaveLen(2))
-				Expect(gateways[0].ClusterName).To(Equal(clusters[0].ObjectMeta.Name))
+				Expect(gateways[0].ClusterNamespacedName.Name).To(Equal(clusters[0].Name))
 				Expect(gateways[0].Unreachable).To(BeTrue())
 
-				Expect(gateways[1].ClusterName).To(Equal(clusters[1].ObjectMeta.Name))
+				Expect(gateways[1].ClusterNamespacedName.Name).To(Equal(clusters[1].Name))
 				Expect(gateways[1].Unreachable).To(BeTrue())
 			})
 		})

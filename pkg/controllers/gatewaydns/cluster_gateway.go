@@ -15,16 +15,20 @@ import (
 )
 
 type ClusterGateway struct {
-	ClusterName              string
+	ClusterNamespacedName    types.NamespacedName
 	Gateway                  *corev1.Service
 	Unreachable              bool
 	DomainSuffix             string
-	ControllerNamespace      string
+	ControllerNamespace      string // xcc-test by default, where xcc-dns-controller and dns-server are deployed
 	GatewayDNSNamespacedName types.NamespacedName
 }
 
 func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
-	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.%s", cg.ClusterName, cg.GatewayDNSNamespacedName.Namespace, cg.DomainSuffix)
+	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.%s",
+		cg.ClusterNamespacedName.Name,
+		cg.ClusterNamespacedName.Namespace,
+		cg.DomainSuffix,
+	)
 	addresses := []string{}
 	for _, ingress := range cg.Gateway.Status.LoadBalancer.Ingress {
 		addresses = append(addresses, ingress.IP)
@@ -49,7 +53,7 @@ func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
 }
 
 func (cg ClusterGateway) endpointSliceName() string {
-	return fmt.Sprintf("%s-%s-gateway", cg.GatewayDNSNamespacedName.Namespace, cg.ClusterName)
+	return fmt.Sprintf("%s-%s-gateway", cg.ClusterNamespacedName.Namespace, cg.ClusterNamespacedName.Name)
 }
 
 func (cg ClusterGateway) EndpointSliceKey() string {

@@ -19,7 +19,10 @@ var _ = Describe("ClusterGateway", func() {
 	BeforeEach(func() {
 		clusterGateways = []gatewaydns.ClusterGateway{
 			{
-				ClusterName:         "foo",
+				ClusterNamespacedName: types.NamespacedName{
+					Name:      "cluster-name-foo",
+					Namespace: "cluster-namespace-foo",
+				},
 				ControllerNamespace: "xcc-dns",
 				DomainSuffix:        "xcc.test",
 				GatewayDNSNamespacedName: types.NamespacedName{
@@ -38,7 +41,10 @@ var _ = Describe("ClusterGateway", func() {
 				},
 			},
 			{
-				ClusterName:         "bar",
+				ClusterNamespacedName: types.NamespacedName{
+					Name:      "cluster-name-bar",
+					Namespace: "cluster-namespace-bar",
+				},
 				ControllerNamespace: "xcc-dns",
 				DomainSuffix:        "xcc.test",
 				GatewayDNSNamespacedName: types.NamespacedName{
@@ -57,7 +63,10 @@ var _ = Describe("ClusterGateway", func() {
 				},
 			},
 			{
-				ClusterName:         "baz",
+				ClusterNamespacedName: types.NamespacedName{
+					Name:      "cluster-name-baz",
+					Namespace: "cluster-namespace-baz",
+				},
 				ControllerNamespace: "xcc-dns",
 				DomainSuffix:        "xcc.test",
 				GatewayDNSNamespacedName: types.NamespacedName{
@@ -80,27 +89,27 @@ var _ = Describe("ClusterGateway", func() {
 
 	It("Transforms Cluster Gateways into Endpoint Slices", func() {
 		endpointSlice := clusterGateways[0].ToEndpointSlice()
-		Expect(endpointSlice.Name).To(Equal("gateway-dns-namespace-foo-gateway"))
+		Expect(endpointSlice.Name).To(Equal("cluster-namespace-foo-cluster-name-foo-gateway"))
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
-		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.foo.gateway-dns-namespace.clusters.xcc.test"))
+		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-foo.cluster-namespace-foo.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.1"))
 
 		endpointSlice = clusterGateways[1].ToEndpointSlice()
-		Expect(endpointSlice.Name).To(Equal("gateway-dns-namespace-bar-gateway"))
+		Expect(endpointSlice.Name).To(Equal("cluster-namespace-bar-cluster-name-bar-gateway"))
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
-		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.bar.gateway-dns-namespace.clusters.xcc.test"))
+		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-bar.cluster-namespace-bar.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.2"))
 
 		endpointSlice = clusterGateways[2].ToEndpointSlice()
-		Expect(endpointSlice.Name).To(Equal("gateway-dns-namespace-baz-gateway"))
+		Expect(endpointSlice.Name).To(Equal("cluster-namespace-baz-cluster-name-baz-gateway"))
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
-		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.baz.gateway-dns-namespace.clusters.xcc.test"))
+		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-baz.cluster-namespace-baz.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
