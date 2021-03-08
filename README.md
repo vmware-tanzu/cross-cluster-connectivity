@@ -25,6 +25,15 @@ even when:
 4. Clusters do not follow the rules of [Namespace
    Sameness](https://groups.google.com/forum/#!msg/kubernetes-sig-multicluster/jfDAMxFWlOg/9Z9O0mVpAgAJ)
 
+## Architecture
+![Architecture diagram](doc/arch.png)
+
+Cross-cluster Connectivity (XCC) adds two new controllers (green in the diagram
+above):
+- `xcc-dns-controller` on the management cluster
+- `dns-server` on any workload cluster where cross-cluster DNS resolution is
+  desired
+
 ## Walkthrough
 
 This walkthrough assumes:
