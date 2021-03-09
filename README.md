@@ -45,10 +45,6 @@ This walkthrough assumes:
   exist, with support for services type LoadBalancer. For the sake of this doc, assume
   `cluster-a` and `cluster-b` exist and both of these Clusters belong to the
   `dev-team` namespace on the management cluster.
-- The images referenced in these files are not publicly available. The images
-  can be built using `make build-images`. Until the team finds a home for
-  images, you'll need to push them to your own registry and update the
-  deployments accordingly.
 - If you're using `kind`, you'll need to BYO your own load balancer.
   Consider using [MetalLB](https://metallb.universe.tf).
 
