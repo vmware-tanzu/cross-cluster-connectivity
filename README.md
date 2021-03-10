@@ -38,12 +38,14 @@ The current project has some important limitations:
 
 - End-to-end use cases rely on an L7 Ingress (Gateway) for HTTP(S) or SNI-based
   routing
-  - Potential future feature: resolve NodePort Services, e.g. #71
+  - Potential future feature: resolve NodePort Services, e.g.
+    [#71](https://github.com/vmware-tanzu/cross-cluster-connectivity/issues/71)
 - No resolution across management-cluster namespaces
   - Maybe a future feature?
 - Ingress gateway must be behind a Service type:LoadBalancer
   - Future feature: maybe support ingress listening on node-ports or host-ports
-    (#44 and #45)
+    ([#44](https://github.com/vmware-tanzu/cross-cluster-connectivity/issues/44)
+    and [#45](https://github.com/vmware-tanzu/cross-cluster-connectivity/issues/45))
 - Hostnames include the name of the cluster hosting the service
   - Future: add some kind of CNAME support to hide the cluster name?
 
