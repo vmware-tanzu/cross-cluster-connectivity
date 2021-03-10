@@ -18,8 +18,7 @@ DNS, or tenancy model of the clusters.
 This project aims to provide cross-cluster service discovery and connectivity
 even when:
 
-1. Service type:LoadBalancer is unavailable, or prohibitively expensive if used
-   per-service
+1. Service type:LoadBalancer is too expensive to use for every Service
 2. Pod and ClusterIP CIDR blocks are identical on all clusters
 3. Users do not have permissions to edit public DNS records
 4. Clusters do not follow the rules of [Namespace
@@ -33,6 +32,20 @@ above):
 - `xcc-dns-controller` on the management cluster
 - `dns-server` on any workload cluster where cross-cluster DNS resolution is
   desired
+
+## Limitations
+The current project has some important limitations:
+
+- End-to-end use cases rely on an L7 Ingress (Gateway) for HTTP(S) or SNI-based
+  routing
+  - Potential future feature: resolve NodePort Services, e.g. #71
+- No resolution across management-cluster namespaces
+  - Maybe a future feature?
+- Ingress gateway must be behind a Service type:LoadBalancer
+  - Future feature: maybe support ingress listening on node-ports or host-ports
+    (#44 and #45)
+- Hostnames include the name of the cluster hosting the service
+  - Future: add some kind of CNAME support to hide the cluster name?
 
 ## Walkthrough
 
