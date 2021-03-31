@@ -34,17 +34,19 @@ var errNameNotFound = errors.New("name not found")
 func (c *CrossCluster) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
 	fqdn := strings.ToLower(state.QName())
 
-	cacheEntry := c.RecordsCache.Lookup(fqdn)
-	if cacheEntry == nil {
+	cacheEntries := c.RecordsCache.Lookup(fqdn)
+	if len(cacheEntries) == 0 {
 		return nil, errNameNotFound
 	}
 
 	services := []msg.Service{}
-	for _, ip := range cacheEntry.IPs {
-		services = append(services, msg.Service{
-			Host: ip.String(),
-			TTL:  30,
-		})
+	for _, cacheEntry := range cacheEntries {
+		for _, ip := range cacheEntry.IPs {
+			services = append(services, msg.Service{
+				Host: ip.String(),
+				TTL:  30,
+			})
+		}
 	}
 
 	return services, nil

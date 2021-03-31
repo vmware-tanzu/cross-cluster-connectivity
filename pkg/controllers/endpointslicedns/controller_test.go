@@ -5,7 +5,6 @@ package endpointslicedns_test
 
 import (
 	"context"
-	"net"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
@@ -92,9 +91,9 @@ var _ = Describe("Reconcile", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
-			cacheEntry := dnsCache.Lookup("foo.xcc.test")
-			Expect(cacheEntry).NotTo(BeNil())
-			Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf(expectedIPs))
+			cacheEntries := dnsCache.Lookup("foo.xcc.test")
+			Expect(cacheEntries).NotTo(BeEmpty())
+			Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
 		})
 
 		When("the domain name is a wildcard domain", func() {
@@ -108,13 +107,104 @@ var _ = Describe("Reconcile", func() {
 				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
 				Expect(err).NotTo(HaveOccurred())
 
-				cacheEntry := dnsCache.Lookup("foo.gateway.xcc.test")
-				Expect(cacheEntry).NotTo(BeNil())
-				Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf(expectedIPs))
+				cacheEntries := dnsCache.Lookup("foo.gateway.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
 
-				cacheEntry = dnsCache.Lookup("bar.gateway.xcc.test")
-				Expect(cacheEntry).NotTo(BeNil())
-				Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf(expectedIPs))
+				cacheEntries = dnsCache.Lookup("bar.gateway.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+			})
+		})
+
+		When("multiple EndpointSlices exists with the same DNS hostname annotation", func() {
+			BeforeEach(func() {
+				endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = "foo.xcc.test"
+				err := kubeClient.Update(context.Background(), endpointSlice)
+				Expect(err).NotTo(HaveOccurred())
+
+				anotherEndpointSlice := &discoveryv1beta1.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-endpoint-slice",
+						Namespace: "cross-cluster-connectivity",
+						Annotations: map[string]string{
+							connectivityv1alpha1.DNSHostnameAnnotation: "foo.xcc.test",
+						},
+					},
+					AddressType: discoveryv1beta1.AddressTypeIPv4,
+					Endpoints: []discoveryv1beta1.Endpoint{
+						{
+							Addresses: []string{"2.2.3.4", "2.2.3.5"},
+						},
+						{
+							Addresses: []string{"2.2.3.6", "2.2.3.7"},
+						},
+					},
+				}
+
+				expectedIPs = append(expectedIPs, "2.2.3.4", "2.2.3.5", "2.2.3.6", "2.2.3.7")
+
+				err = kubeClient.Create(context.Background(), anotherEndpointSlice)
+				Expect(err).NotTo(HaveOccurred())
+
+				differentEndpointSlice := &discoveryv1beta1.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "different-endpoint-slice",
+						Namespace: "cross-cluster-connectivity",
+						Annotations: map[string]string{
+							connectivityv1alpha1.DNSHostnameAnnotation: "bar.xcc.test",
+						},
+					},
+					AddressType: discoveryv1beta1.AddressTypeIPv4,
+					Endpoints: []discoveryv1beta1.Endpoint{
+						{
+							Addresses: []string{"3.2.3.4", "3.2.3.5"},
+						},
+						{
+							Addresses: []string{"3.2.3.6", "3.2.3.7"},
+						},
+					},
+				}
+
+				err = kubeClient.Create(context.Background(), differentEndpointSlice)
+				Expect(err).NotTo(HaveOccurred())
+
+				result, err := endpointSliceReconciler.Reconcile(context.Background(), req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				req.Name = "another-endpoint-slice"
+				result, err = endpointSliceReconciler.Reconcile(context.Background(), req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				req.Name = "different-endpoint-slice"
+				result, err = endpointSliceReconciler.Reconcile(context.Background(), req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+			})
+
+			It("populates the dns cache with the domain name and endpoints from both EndpointSlices", func() {
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+			})
+
+			When("one EndpointSlice is deleted", func() {
+				It("removes the endpoints of deleted EndpointSlice without deleting the record", func() {
+					By("deleting one EndpointSlice and reconcile again")
+					err := kubeClient.Delete(context.Background(), endpointSlice)
+					Expect(err).NotTo(HaveOccurred())
+
+					req.Name = "some-endpoint-slice"
+					_, err = endpointSliceReconciler.Reconcile(context.Background(), req)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("checking that the DNS doesn't have entries of the deleted EndpointSlice")
+					cacheEntries := dnsCache.Lookup("foo.xcc.test")
+					Expect(cacheEntries).NotTo(BeEmpty())
+					Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf("2.2.3.4", "2.2.3.5", "2.2.3.6", "2.2.3.7"))
+				})
 			})
 		})
 
@@ -132,8 +222,8 @@ var _ = Describe("Reconcile", func() {
 				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
 				Expect(err).NotTo(HaveOccurred())
 
-				cacheEntry := dnsCache.Lookup("foo.xcc.test")
-				Expect(cacheEntry).To(BeNil())
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).To(BeEmpty())
 			})
 		})
 
@@ -143,9 +233,9 @@ var _ = Describe("Reconcile", func() {
 				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
 				Expect(err).NotTo(HaveOccurred())
 
-				cacheEntry := dnsCache.Lookup("foo.xcc.test")
-				Expect(cacheEntry).NotTo(BeNil())
-				Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf(expectedIPs))
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
 
 				By("updating the EndpointSlice and reconciling again")
 
@@ -160,9 +250,9 @@ var _ = Describe("Reconcile", func() {
 
 				By("checking that the DNS entry is changed")
 
-				cacheEntry = dnsCache.Lookup("foo.xcc.test")
-				Expect(cacheEntry).NotTo(BeNil())
-				Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf("1.2.3.4"))
+				cacheEntries = dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf("1.2.3.4"))
 			})
 		})
 
@@ -172,9 +262,9 @@ var _ = Describe("Reconcile", func() {
 				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
 				Expect(err).NotTo(HaveOccurred())
 
-				cacheEntry := dnsCache.Lookup("foo.xcc.test")
-				Expect(cacheEntry).NotTo(BeNil())
-				Expect(ipsToStrings(cacheEntry.IPs)).To(ConsistOf(expectedIPs))
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
 
 				By("deleting the EndpointSlice and reconciling again")
 
@@ -186,8 +276,8 @@ var _ = Describe("Reconcile", func() {
 
 				By("checking that the DNS entry no longer exists")
 
-				cacheEntry = dnsCache.Lookup("foo.xcc.test")
-				Expect(cacheEntry).To(BeNil())
+				cacheEntries = dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).To(BeEmpty())
 			})
 		})
 	})
@@ -202,11 +292,12 @@ var _ = Describe("Reconcile", func() {
 	})
 })
 
-func ipsToStrings(ips []net.IP) []string {
+func cacheEntriesToIPStrings(cacheEntries []endpointslicedns.DNSCacheEntry) []string {
 	strIPs := []string{}
-	for _, ip := range ips {
-		strIPs = append(strIPs, ip.String())
+	for _, entry := range cacheEntries {
+		for _, ip := range entry.IPs {
+			strIPs = append(strIPs, ip.String())
+		}
 	}
-
 	return strIPs
 }
