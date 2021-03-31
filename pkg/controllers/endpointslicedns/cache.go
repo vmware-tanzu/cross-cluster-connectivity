@@ -22,7 +22,7 @@ type DNSCacheEntry struct {
 // DNSCache maps Domain Name -> DNSCacheEntry
 type DNSCache struct {
 	mutex             sync.RWMutex
-	entries           map[string]DNSCacheEntry
+	entries           map[string][]DNSCacheEntry
 	resourceKeyToFQDN map[string]string
 	isPopulated       bool
 }
@@ -33,25 +33,40 @@ func (d *DNSCache) Upsert(entry DNSCacheEntry) {
 	defer d.mutex.Unlock()
 
 	if d.entries == nil || d.resourceKeyToFQDN == nil {
-		d.entries = make(map[string]DNSCacheEntry)
+		d.entries = make(map[string][]DNSCacheEntry)
 		d.resourceKeyToFQDN = make(map[string]string)
 	}
 	fqdn := dns.Fqdn(entry.FQDN)
-	if oldEntry, ok := d.entries[fqdn]; ok {
-		if oldEntry.ResourceKey != entry.ResourceKey {
-			delete(d.resourceKeyToFQDN, oldEntry.ResourceKey)
-		}
-	}
+
 	if oldFQDN, ok := d.resourceKeyToFQDN[entry.ResourceKey]; ok {
 		if oldFQDN != fqdn {
-			delete(d.entries, oldFQDN)
+			for i, oldEntry := range d.entries[oldFQDN] {
+				if oldEntry.ResourceKey == entry.ResourceKey {
+					d.entries[oldFQDN] = append(d.entries[oldFQDN][:i], d.entries[oldFQDN][i+1:]...)
+					break
+				}
+			}
+			if len(d.entries[oldFQDN]) == 0 {
+				delete(d.entries, oldFQDN)
+			}
 		}
 	}
-	d.entries[fqdn] = entry
+
+	updated := false
+	for i, e := range d.entries[fqdn] {
+		if e.ResourceKey == entry.ResourceKey {
+			d.entries[fqdn][i] = entry
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		d.entries[fqdn] = append(d.entries[fqdn], entry)
+	}
 	d.resourceKeyToFQDN[entry.ResourceKey] = fqdn
 }
 
-// Delete removes the DNSCacheEntry associated with the provided FQDN
+// Delete removes the DNSCacheEntries associated with the provided FQDN
 func (d *DNSCache) Delete(fqdn string) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -60,10 +75,10 @@ func (d *DNSCache) Delete(fqdn string) {
 		return
 	}
 	fqdn = dns.Fqdn(fqdn)
-	if entryToDelete, ok := d.entries[fqdn]; ok {
-		delete(d.entries, fqdn)
-		delete(d.resourceKeyToFQDN, entryToDelete.ResourceKey)
+	for _, entry := range d.entries[fqdn] {
+		delete(d.resourceKeyToFQDN, entry.ResourceKey)
 	}
+	delete(d.entries, fqdn)
 }
 
 // DeleteByResourceKey removes the DNSCacheEntry associated with the resource key
@@ -75,13 +90,18 @@ func (d *DNSCache) DeleteByResourceKey(resourceKey string) {
 		return
 	}
 	if fqdnToDelete, ok := d.resourceKeyToFQDN[resourceKey]; ok {
-		delete(d.entries, fqdnToDelete)
+		for i, entry := range d.entries[fqdnToDelete] {
+			if entry.ResourceKey == resourceKey {
+				d.entries[fqdnToDelete] = append(d.entries[fqdnToDelete][:i], d.entries[fqdnToDelete][i+1:]...)
+				break
+			}
+		}
 		delete(d.resourceKeyToFQDN, resourceKey)
 	}
 }
 
-// Lookup retrieves the DNSCacheEntry associated with the provided FQDN
-func (d *DNSCache) Lookup(fqdn string) *DNSCacheEntry {
+// Lookup retrieves the DNSCacheEntries associated with the provided FQDN
+func (d *DNSCache) Lookup(fqdn string) []DNSCacheEntry {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -91,14 +111,14 @@ func (d *DNSCache) Lookup(fqdn string) *DNSCacheEntry {
 
 	fqdn = dns.Fqdn(fqdn)
 	if e, ok := d.entries[fqdn]; ok {
-		return &e
+		return e
 	}
 
 	labels := dns.SplitDomainName(fqdn)
 	for len(labels) > 0 {
 		nextLookup := fmt.Sprintf("*.%s.", strings.Join(labels[1:], "."))
 		if e, ok := d.entries[nextLookup]; ok {
-			return &e
+			return e
 		}
 		labels = labels[1:]
 	}
@@ -116,8 +136,10 @@ func (d *DNSCache) LookupByResourceKey(resourceKey string) *DNSCacheEntry {
 	}
 
 	if fqdn, ok := d.resourceKeyToFQDN[resourceKey]; ok {
-		if e, ok := d.entries[fqdn]; ok {
-			return &e
+		for _, e := range d.entries[fqdn] {
+			if e.ResourceKey == resourceKey {
+				return &e
+			}
 		}
 	}
 	return nil
