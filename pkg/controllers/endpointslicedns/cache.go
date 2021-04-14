@@ -89,11 +89,15 @@ func (d *DNSCache) DeleteByResourceKey(resourceKey string) {
 	if d.entries == nil || d.resourceKeyToFQDN == nil {
 		return
 	}
-	if fqdnToDelete, ok := d.resourceKeyToFQDN[resourceKey]; ok {
-		for i, entry := range d.entries[fqdnToDelete] {
+	if fqdnToUpdate, ok := d.resourceKeyToFQDN[resourceKey]; ok {
+		for i, entry := range d.entries[fqdnToUpdate] {
 			if entry.ResourceKey == resourceKey {
-				d.entries[fqdnToDelete] = append(d.entries[fqdnToDelete][:i], d.entries[fqdnToDelete][i+1:]...)
+				d.entries[fqdnToUpdate] = append(d.entries[fqdnToUpdate][:i], d.entries[fqdnToUpdate][i+1:]...)
 				break
+			}
+
+			if len(d.entries[fqdnToUpdate]) == 0 {
+				delete(d.entries, fqdnToUpdate)
 			}
 		}
 		delete(d.resourceKeyToFQDN, resourceKey)
