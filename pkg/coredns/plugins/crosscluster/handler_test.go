@@ -62,7 +62,7 @@ var _ = Describe("CrossCluster", func() {
 			dnsCache.Upsert(endpointslicedns.DNSCacheEntry{
 				ResourceKey: "other-namespace/another-service",
 				FQDN:        "another-service.other.domain",
-				Addresses:   []string{"baz.com"},
+				Addresses:   []string{"BAZ.com"},
 			})
 		})
 

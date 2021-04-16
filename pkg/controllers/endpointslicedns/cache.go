@@ -52,6 +52,12 @@ func (d *DNSCache) Upsert(entry DNSCacheEntry) {
 		}
 	}
 
+	for i, address := range entry.Addresses {
+		if net.ParseIP(address) == nil {
+			entry.Addresses[i] = dns.CanonicalName(address)
+		}
+	}
+
 	updated := false
 	for i, e := range d.entries[fqdn] {
 		if e.ResourceKey == entry.ResourceKey {

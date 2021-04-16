@@ -28,6 +28,29 @@ var _ = Describe("DNSCache", func() {
 			Expect(cache.LookupByResourceKey("12345-abc")).To(Equal(&dnsCacheEntry))
 		})
 
+		It("canonicalizes non-ip addresses of the cache entry", func() {
+			cache := new(endpointslicedns.DNSCache)
+			Expect(cache.Lookup("a.b.c")).To(BeEmpty())
+			Expect(cache.LookupByResourceKey("12345-abc")).To(BeNil())
+
+			dnsCacheEntry := endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"FOO.com"},
+			}
+			cache.Upsert(dnsCacheEntry)
+
+			expectedDNSCacheEntry := endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"foo.com."},
+			}
+
+			Expect(cache.Lookup("a.b.c")).To(ConsistOf(expectedDNSCacheEntry))
+			Expect(cache.LookupByResourceKey("12345-abc")).To(Equal(&expectedDNSCacheEntry))
+
+		})
+
 		Context("if cache entry has the FQDN which already exists in the cache but with different resource key", func() {
 			var (
 				cache     *endpointslicedns.DNSCache

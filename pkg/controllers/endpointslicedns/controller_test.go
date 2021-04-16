@@ -227,7 +227,7 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries := dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com"))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com."))
 			})
 
 			When("there are (invalidly) multiple addresses in the EndpointSlice", func() {
@@ -264,7 +264,7 @@ var _ = Describe("Reconcile", func() {
 
 					cacheEntries := dnsCache.Lookup("foo.xcc.test")
 					Expect(cacheEntries).NotTo(BeEmpty())
-					Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com", "bar.com", "baz.com"))
+					Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com.", "bar.com.", "baz.com."))
 				})
 
 			})
