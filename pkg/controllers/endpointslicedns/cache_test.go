@@ -241,4 +241,67 @@ var _ = Describe("DNSCache", func() {
 			Expect(cache.IsPopulated()).To(BeTrue())
 		})
 	})
+
+	Describe("IsValid", func() {
+		var (
+			cache       *endpointslicedns.DNSCache
+			ipEntry1    endpointslicedns.DNSCacheEntry
+			ipEntry2    endpointslicedns.DNSCacheEntry
+			cnameEntry1 endpointslicedns.DNSCacheEntry
+			cnameEntry2 endpointslicedns.DNSCacheEntry
+		)
+		BeforeEach(func() {
+			cache = new(endpointslicedns.DNSCache)
+			ipEntry1 = endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc-one",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"1.2.3.4"},
+			}
+
+			ipEntry2 = endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc-two",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"2.3.4.5"},
+			}
+
+			cnameEntry1 = endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc-three",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"foo.com"},
+			}
+
+			cnameEntry2 = endpointslicedns.DNSCacheEntry{
+				ResourceKey: "12345-abc-four",
+				FQDN:        "a.b.c",
+				Addresses:   []string{"bar.com"},
+			}
+		})
+
+		It("returns true when the DNS cache entry has only IP addresses", func() {
+			cache.Upsert(ipEntry1)
+			cache.Upsert(ipEntry2)
+			Expect(cache.IsValid("a.b.c")).To(BeTrue())
+		})
+
+		It("returns true when the DNS cache entry has only one CNAME entry", func() {
+			cache.Upsert(cnameEntry1)
+			Expect(cache.IsValid("a.b.c")).To(BeTrue())
+		})
+
+		It("returns false when the DNS cache entry has both IP address and CNAME entries", func() {
+			cache.Upsert(ipEntry1)
+			cache.Upsert(cnameEntry1)
+			Expect(cache.IsValid("a.b.c")).To(BeFalse())
+		})
+
+		It("returns false when the DNS cache entry has multiple CNAME entries", func() {
+			cache.Upsert(cnameEntry1)
+			cache.Upsert(cnameEntry2)
+			Expect(cache.IsValid("a.b.c")).To(BeFalse())
+		})
+
+		It("returns false when the FQDN doesn't exist", func() {
+			Expect(cache.IsValid("a.b.d")).To(BeFalse())
+		})
+	})
 })

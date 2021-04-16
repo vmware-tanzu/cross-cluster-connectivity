@@ -78,6 +78,17 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	})
 	log.WithValues("dns-hostname", fqdn).Info("Successfully synced")
 
+	if !r.RecordsCache.IsValid(fqdn) {
+		log.Error(
+			fmt.Errorf(`DNS entry for "%s" is in an invalid state.`, fqdn),
+			"If this FQDN is to resolve to a CNAME record, check to ensure any "+
+				" FQDN EndpointSlice associated with this FQDN is the only "+
+				"EndpointSlice annotated with this FQDN. Otherwise, if the FQDN is to "+
+				"resolve to an A record, then ensure there are no FQDN EndpointSlices "+
+				"annotated with this FQDN.",
+		)
+	}
+
 	return ctrl.Result{}, nil
 }
 
