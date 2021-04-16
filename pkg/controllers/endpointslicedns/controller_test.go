@@ -93,7 +93,7 @@ var _ = Describe("Reconcile", func() {
 
 			cacheEntries := dnsCache.Lookup("foo.xcc.test")
 			Expect(cacheEntries).NotTo(BeEmpty())
-			Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+			Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 		})
 
 		When("the domain name is a wildcard domain", func() {
@@ -109,11 +109,11 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries := dnsCache.Lookup("foo.gateway.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 
 				cacheEntries = dnsCache.Lookup("bar.gateway.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 			})
 		})
 
@@ -187,7 +187,7 @@ var _ = Describe("Reconcile", func() {
 			It("populates the dns cache with the domain name and endpoints from both EndpointSlices", func() {
 				cacheEntries := dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 			})
 
 			When("one EndpointSlice is deleted", func() {
@@ -203,12 +203,37 @@ var _ = Describe("Reconcile", func() {
 					By("checking that the DNS doesn't have entries of the deleted EndpointSlice")
 					cacheEntries := dnsCache.Lookup("foo.xcc.test")
 					Expect(cacheEntries).NotTo(BeEmpty())
-					Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf("2.2.3.4", "2.2.3.5", "2.2.3.6", "2.2.3.7"))
+					Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("2.2.3.4", "2.2.3.5", "2.2.3.6", "2.2.3.7"))
 				})
 			})
 		})
 
-		When("the domain name is an IPv6 domain", func() {
+		When("the address type is FQDN", func() {
+			BeforeEach(func() {
+				endpointSlice.AddressType = discoveryv1beta1.AddressTypeFQDN
+				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+					{
+						Addresses: []string{"foo.com", "bar.com"},
+					},
+					{
+						Addresses: []string{"baz.com"},
+					},
+				}
+				err := kubeClient.Update(context.Background(), endpointSlice)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns the domain names on lookup", func() {
+				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
+				Expect(err).NotTo(HaveOccurred())
+
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com", "bar.com", "baz.com"))
+			})
+		})
+
+		When("the address type is IPv6", func() {
 			BeforeEach(func() {
 				endpointSlice.AddressType = discoveryv1beta1.AddressTypeIPv6
 				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
@@ -227,6 +252,26 @@ var _ = Describe("Reconcile", func() {
 			})
 		})
 
+		When("an invalid IP is provided as part of an IPv4 EndpointSlice", func() {
+			BeforeEach(func() {
+				endpointSlice.Endpoints = append(endpointSlice.Endpoints, discoveryv1beta1.Endpoint{
+					Addresses: []string{"not.an.ip"},
+				})
+				err := kubeClient.Update(context.Background(), endpointSlice)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("does not return this invalid IP on lookup", func() {
+				_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
+				Expect(err).NotTo(HaveOccurred())
+
+				cacheEntries := dnsCache.Lookup("foo.xcc.test")
+				Expect(cacheEntries).NotTo(BeEmpty())
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
+
+			})
+		})
+
 		When("the EndpointSlice is updated", func() {
 			It("updates the dns cache", func() {
 				By("testing that the reconciler reconciles on the created resource")
@@ -235,7 +280,7 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries := dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 
 				By("updating the EndpointSlice and reconciling again")
 
@@ -252,7 +297,7 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries = dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf("1.2.3.4"))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("1.2.3.4"))
 			})
 		})
 
@@ -264,7 +309,7 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries := dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToIPStrings(cacheEntries)).To(ConsistOf(expectedIPs))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf(expectedIPs))
 
 				By("deleting the EndpointSlice and reconciling again")
 
@@ -292,12 +337,10 @@ var _ = Describe("Reconcile", func() {
 	})
 })
 
-func cacheEntriesToIPStrings(cacheEntries []endpointslicedns.DNSCacheEntry) []string {
-	strIPs := []string{}
+func cacheEntriesToAddresses(cacheEntries []endpointslicedns.DNSCacheEntry) []string {
+	addresses := []string{}
 	for _, entry := range cacheEntries {
-		for _, ip := range entry.IPs {
-			strIPs = append(strIPs, ip.String())
-		}
+		addresses = append(addresses, entry.Addresses...)
 	}
-	return strIPs
+	return addresses
 }

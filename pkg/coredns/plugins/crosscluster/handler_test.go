@@ -28,34 +28,41 @@ var _ = Describe("CrossCluster", func() {
 			dnsPlugin *crosscluster.CrossCluster
 		)
 
-			BeforeEach(func() {
+		BeforeEach(func() {
 			ctrl.SetLogger(zap.New(
 				zap.UseDevMode(true),
 				zap.WriteTo(GinkgoWriter),
-		))
+			))
 
 			dnsCache = &endpointslicedns.DNSCache{}
 			dnsPlugin = &crosscluster.CrossCluster{
 				RecordsCache: dnsCache,
-				Zones:        []string{"some.domain."},
+				Zones:        []string{"some.domain.", "other.domain."},
 				Log:          ctrl.Log.WithName("dnsserver"),
 			}
 
 			dnsCache.Upsert(endpointslicedns.DNSCacheEntry{
 				ResourceKey: "some-namespace/some-service",
 				FQDN:        "some-service.some.domain",
-				IPs: []net.IP{
-					net.ParseIP("1.2.3.4"),
-					net.ParseIP("1.2.3.5"),
-				},
+				Addresses:   []string{"1.2.3.4", "1.2.3.5"},
 			})
 
 			dnsCache.Upsert(endpointslicedns.DNSCacheEntry{
 				ResourceKey: "some-namespace/another-service",
 				FQDN:        "another-service.some.domain",
-				IPs: []net.IP{
-					net.ParseIP("2.3.4.5"),
-				},
+				Addresses:   []string{"2.3.4.5"},
+			})
+
+			dnsCache.Upsert(endpointslicedns.DNSCacheEntry{
+				ResourceKey: "other-namespace/some-service",
+				FQDN:        "some-service.other.domain",
+				Addresses:   []string{"foo.com", "bar.com"},
+			})
+
+			dnsCache.Upsert(endpointslicedns.DNSCacheEntry{
+				ResourceKey: "other-namespace/another-service",
+				FQDN:        "another-service.other.domain",
+				Addresses:   []string{"baz.com"},
 			})
 		})
 
@@ -65,6 +72,8 @@ var _ = Describe("CrossCluster", func() {
 			w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 			dnsPlugin.ServeDNS(context.Background(), w, r)
+
+			Expect(w.Msg).ToNot(BeNil())
 
 			var answerIPs []net.IP
 			for i, answer := range w.Msg.Answer {
@@ -84,6 +93,35 @@ var _ = Describe("CrossCluster", func() {
 			Entry("handles case-insensitivity", "ANOTHER-SERVICE.some.domain", net.ParseIP("2.3.4.5").To4()),
 		)
 
+		DescribeTable("returns an appropriate DNS response given a CNAME record dns request", func(fqdn string, expectedTarget string) {
+			r := new(dns.Msg)
+			r.SetQuestion(dns.Fqdn(fqdn), dns.TypeCNAME)
+			w := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			dnsPlugin.ServeDNS(context.Background(), w, r)
+
+			Expect(w.Msg).ToNot(BeNil())
+
+			var answerTargets []string
+			for i, answer := range w.Msg.Answer {
+				cnameRecord := answer.(*dns.CNAME)
+				Expect(cnameRecord.Hdr).To(Equal(dns.RR_Header{
+					Name:   dns.Fqdn(fqdn),
+					Rrtype: dns.TypeCNAME,
+					Class:  dns.ClassINET,
+					Ttl:    30,
+				}), fmt.Sprintf("Mismatch at index %d", i))
+				answerTargets = append(answerTargets, cnameRecord.Target)
+			}
+			// CNAME records can only map to one host (RFC 1034, Section 3.6.2)
+			Expect(answerTargets).To(ConsistOf(expectedTarget))
+		},
+
+			Entry("returns a CNAME record with the correct targets for some-service", "some-service.other.domain", "foo.com."),
+			Entry("returns a CNAME record with the correct target for another-service", "another-service.other.domain", "baz.com."),
+			Entry("handles case-insensitivity", "ANOTHER-SERVICE.other.domain", "baz.com."),
+		)
+
 		Context("when the FQDN provided is not in the cache", func() {
 			It("returns a DNS message NXDOMAIN", func() {
 				r := new(dns.Msg)
@@ -95,7 +133,7 @@ var _ = Describe("CrossCluster", func() {
 			})
 		})
 
-		Context("when the dns request asks for non A record", func() {
+		Context("when the dns request asks for record that is not type A or CNAME", func() {
 			It("returns a DNS message NXDOMAIN", func() {
 				r := new(dns.Msg)
 				r.SetQuestion(dns.Fqdn("some-service.some.domain"), dns.TypeAAAA)

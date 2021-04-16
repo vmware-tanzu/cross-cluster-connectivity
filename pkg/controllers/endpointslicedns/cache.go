@@ -5,7 +5,6 @@ package endpointslicedns
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"sync"
 
@@ -16,7 +15,7 @@ import (
 type DNSCacheEntry struct {
 	ResourceKey string
 	FQDN        string
-	IPs         []net.IP
+	Addresses   []string
 }
 
 // DNSCache maps Domain Name -> DNSCacheEntry
