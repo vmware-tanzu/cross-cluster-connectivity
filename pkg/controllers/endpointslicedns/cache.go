@@ -36,7 +36,7 @@ func (d *DNSCache) Upsert(entry DNSCacheEntry) {
 		d.entries = make(map[string][]DNSCacheEntry)
 		d.resourceKeyToFQDN = make(map[string]string)
 	}
-	fqdn := dns.Fqdn(entry.FQDN)
+	fqdn := dns.CanonicalName(entry.FQDN)
 
 	if oldFQDN, ok := d.resourceKeyToFQDN[entry.ResourceKey]; ok {
 		if oldFQDN != fqdn {
@@ -56,6 +56,7 @@ func (d *DNSCache) Upsert(entry DNSCacheEntry) {
 		if net.ParseIP(address) == nil {
 			entry.Addresses[i] = dns.CanonicalName(address)
 		}
+		entry.FQDN = dns.CanonicalName(entry.FQDN)
 	}
 
 	updated := false
@@ -80,7 +81,7 @@ func (d *DNSCache) Delete(fqdn string) {
 	if d.entries == nil || d.resourceKeyToFQDN == nil {
 		return
 	}
-	fqdn = dns.Fqdn(fqdn)
+	fqdn = dns.CanonicalName(fqdn)
 	for _, entry := range d.entries[fqdn] {
 		delete(d.resourceKeyToFQDN, entry.ResourceKey)
 	}
@@ -119,7 +120,7 @@ func (d *DNSCache) Lookup(fqdn string) []DNSCacheEntry {
 		return nil
 	}
 
-	fqdn = dns.Fqdn(fqdn)
+	fqdn = dns.CanonicalName(fqdn)
 	if e, ok := d.entries[fqdn]; ok {
 		return e
 	}
@@ -176,7 +177,7 @@ func (d *DNSCache) SetPopulated() {
 // the only alias and may not also represent other RR types. (RFC 1034, Section
 // 3.6.2).
 func (d *DNSCache) IsValid(fqdn string) bool {
-	entries := d.Lookup(fqdn)
+	entries := d.Lookup(dns.CanonicalName(fqdn))
 	if len(entries) == 0 {
 		return false
 	}

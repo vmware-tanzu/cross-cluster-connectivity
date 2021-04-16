@@ -19,7 +19,7 @@ var _ = Describe("DNSCache", func() {
 
 			dnsCacheEntry := endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"1.2.3.4"},
 			}
 			cache.Upsert(dnsCacheEntry)
@@ -42,13 +42,12 @@ var _ = Describe("DNSCache", func() {
 
 			expectedDNSCacheEntry := endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"foo.com."},
 			}
 
 			Expect(cache.Lookup("a.b.c")).To(ConsistOf(expectedDNSCacheEntry))
 			Expect(cache.LookupByResourceKey("12345-abc")).To(Equal(&expectedDNSCacheEntry))
-
 		})
 
 		Context("if cache entry has the FQDN which already exists in the cache but with different resource key", func() {
@@ -61,7 +60,7 @@ var _ = Describe("DNSCache", func() {
 				cache = new(endpointslicedns.DNSCache)
 				someEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-some",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(someEntry)
@@ -73,13 +72,34 @@ var _ = Describe("DNSCache", func() {
 
 				anotherEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-another",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"4.5.6.7"},
 				}
 				cache.Upsert(anotherEntry)
 				Expect(cache.Lookup("a.b.c")).To(ConsistOf(someEntry, anotherEntry))
 				Expect(cache.LookupByResourceKey("12345-some")).To(Equal(&someEntry))
 				Expect(cache.LookupByResourceKey("12345-another")).To(Equal(&anotherEntry))
+			})
+
+			Context("when another entry is added that is impropery cased", func() {
+				It("canonicalizes fqdn of the cache entry", func() {
+					anotherDNSCacheEntry := endpointslicedns.DNSCacheEntry{
+						ResourceKey: "12345-another",
+						FQDN:        "A.B.C",
+						Addresses:   []string{"2.3.4.5"},
+					}
+					cache.Upsert(anotherDNSCacheEntry)
+
+					expectedAnotherDNSCacheEntry := endpointslicedns.DNSCacheEntry{
+						ResourceKey: "12345-another",
+						FQDN:        "a.b.c.",
+						Addresses:   []string{"2.3.4.5"},
+					}
+
+					Expect(cache.Lookup("a.b.c")).To(ConsistOf(someEntry, expectedAnotherDNSCacheEntry))
+					Expect(cache.LookupByResourceKey("12345-some")).To(Equal(&someEntry))
+					Expect(cache.LookupByResourceKey("12345-another")).To(Equal(&expectedAnotherDNSCacheEntry))
+				})
 			})
 		})
 
@@ -88,7 +108,7 @@ var _ = Describe("DNSCache", func() {
 				cache := new(endpointslicedns.DNSCache)
 				dnsCacheEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
-					FQDN:        "*.b.c",
+					FQDN:        "*.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(dnsCacheEntry)
@@ -111,7 +131,7 @@ var _ = Describe("DNSCache", func() {
 				cache = new(endpointslicedns.DNSCache)
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
@@ -124,7 +144,7 @@ var _ = Describe("DNSCache", func() {
 
 				newEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
-					FQDN:        "b.c.d",
+					FQDN:        "b.c.d.",
 					Addresses:   []string{"4.5.6.7"},
 				}
 				cache.Upsert(newEntry)
@@ -147,14 +167,14 @@ var _ = Describe("DNSCache", func() {
 				cache = new(endpointslicedns.DNSCache)
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 
 				oldEntry2 = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old-2",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"2.3.4.5"},
 				}
 				cache.Upsert(oldEntry2)
@@ -193,7 +213,7 @@ var _ = Describe("DNSCache", func() {
 				cache = new(endpointslicedns.DNSCache)
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
@@ -221,14 +241,14 @@ var _ = Describe("DNSCache", func() {
 				cache = new(endpointslicedns.DNSCache)
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 
 				anotherEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-another",
-					FQDN:        "a.b.c",
+					FQDN:        "a.b.c.",
 					Addresses:   []string{"2.3.4.5"},
 				}
 				cache.Upsert(anotherEntry)
@@ -277,25 +297,25 @@ var _ = Describe("DNSCache", func() {
 			cache = new(endpointslicedns.DNSCache)
 			ipEntry1 = endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc-one",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"1.2.3.4"},
 			}
 
 			ipEntry2 = endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc-two",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"2.3.4.5"},
 			}
 
 			cnameEntry1 = endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc-three",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"foo.com"},
 			}
 
 			cnameEntry2 = endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc-four",
-				FQDN:        "a.b.c",
+				FQDN:        "a.b.c.",
 				Addresses:   []string{"bar.com"},
 			}
 		})
