@@ -5,6 +5,7 @@ package endpointslicedns
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/go-logr/logr"
@@ -48,23 +49,32 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if endpointSlice.AddressType != discoveryv1beta1.AddressTypeIPv4 {
-		log.Info("Skipping non-IPv4 EndpointSlice")
-		return ctrl.Result{}, nil
-	}
+	addresses := []string{}
 
-	ips := []net.IP{}
-	for _, endpoint := range endpointSlice.Endpoints {
-		for _, address := range endpoint.Addresses {
-			ip := net.ParseIP(address)
-			ips = append(ips, ip)
+	if endpointSlice.AddressType == discoveryv1beta1.AddressTypeIPv4 {
+		for _, endpoint := range endpointSlice.Endpoints {
+			for _, address := range endpoint.Addresses {
+				ip := net.ParseIP(address)
+				if ip == nil {
+					log.Error(fmt.Errorf("Invalid IP with AddressType IPv4: %s", address), "")
+				} else {
+					addresses = append(addresses, ip.String())
+				}
+			}
 		}
+	} else if endpointSlice.AddressType == discoveryv1beta1.AddressTypeFQDN {
+		for _, endpoint := range endpointSlice.Endpoints {
+			addresses = append(addresses, endpoint.Addresses...)
+		}
+	} else {
+		log.Info("Skipping EndpointSlice with unhandled AddressType")
+		return ctrl.Result{}, nil
 	}
 
 	r.RecordsCache.Upsert(DNSCacheEntry{
 		ResourceKey: req.String(),
 		FQDN:        fqdn,
-		IPs:         ips,
+		Addresses:   addresses,
 	})
 	log.WithValues("dns-hostname", fqdn).Info("Successfully synced")
 

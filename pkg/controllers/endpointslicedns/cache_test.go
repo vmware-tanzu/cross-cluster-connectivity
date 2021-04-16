@@ -4,8 +4,6 @@
 package endpointslicedns_test
 
 import (
-	"net"
-
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 
 	. "github.com/onsi/ginkgo"
@@ -22,7 +20,7 @@ var _ = Describe("DNSCache", func() {
 			dnsCacheEntry := endpointslicedns.DNSCacheEntry{
 				ResourceKey: "12345-abc",
 				FQDN:        "a.b.c",
-				IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+				Addresses:   []string{"1.2.3.4"},
 			}
 			cache.Upsert(dnsCacheEntry)
 
@@ -41,7 +39,7 @@ var _ = Describe("DNSCache", func() {
 				someEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-some",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(someEntry)
 			})
@@ -53,7 +51,7 @@ var _ = Describe("DNSCache", func() {
 				anotherEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-another",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("4.5.6.7")},
+					Addresses:   []string{"4.5.6.7"},
 				}
 				cache.Upsert(anotherEntry)
 				Expect(cache.Lookup("a.b.c")).To(ConsistOf(someEntry, anotherEntry))
@@ -68,7 +66,7 @@ var _ = Describe("DNSCache", func() {
 				dnsCacheEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
 					FQDN:        "*.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(dnsCacheEntry)
 
@@ -91,7 +89,7 @@ var _ = Describe("DNSCache", func() {
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 			})
@@ -104,7 +102,7 @@ var _ = Describe("DNSCache", func() {
 				newEntry := endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc",
 					FQDN:        "b.c.d",
-					IPs:         []net.IP{net.ParseIP("4.5.6.7")},
+					Addresses:   []string{"4.5.6.7"},
 				}
 				cache.Upsert(newEntry)
 				Expect(cache.Lookup("a.b.c")).To(BeEmpty())
@@ -127,14 +125,14 @@ var _ = Describe("DNSCache", func() {
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 
 				oldEntry2 = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old-2",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("2.3.4.5")},
+					Addresses:   []string{"2.3.4.5"},
 				}
 				cache.Upsert(oldEntry2)
 			})
@@ -173,7 +171,7 @@ var _ = Describe("DNSCache", func() {
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 			})
@@ -201,14 +199,14 @@ var _ = Describe("DNSCache", func() {
 				oldEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-old",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("1.2.3.4")},
+					Addresses:   []string{"1.2.3.4"},
 				}
 				cache.Upsert(oldEntry)
 
 				anotherEntry = endpointslicedns.DNSCacheEntry{
 					ResourceKey: "12345-abc-another",
 					FQDN:        "a.b.c",
-					IPs:         []net.IP{net.ParseIP("2.3.4.5")},
+					Addresses:   []string{"2.3.4.5"},
 				}
 				cache.Upsert(anotherEntry)
 			})

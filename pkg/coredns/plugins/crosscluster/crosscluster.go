@@ -41,9 +41,9 @@ func (c *CrossCluster) Services(ctx context.Context, state request.Request, exac
 
 	services := []msg.Service{}
 	for _, cacheEntry := range cacheEntries {
-		for _, ip := range cacheEntry.IPs {
+		for _, address := range cacheEntry.Addresses {
 			services = append(services, msg.Service{
-				Host: ip.String(),
+				Host: address,
 				TTL:  30,
 			})
 		}
