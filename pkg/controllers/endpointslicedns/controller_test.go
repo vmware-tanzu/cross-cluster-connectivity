@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("Reconcile", func() {
@@ -213,10 +214,7 @@ var _ = Describe("Reconcile", func() {
 				endpointSlice.AddressType = discoveryv1beta1.AddressTypeFQDN
 				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
 					{
-						Addresses: []string{"foo.com", "bar.com"},
-					},
-					{
-						Addresses: []string{"baz.com"},
+						Addresses: []string{"foo.com"},
 					},
 				}
 				err := kubeClient.Update(context.Background(), endpointSlice)
@@ -229,7 +227,46 @@ var _ = Describe("Reconcile", func() {
 
 				cacheEntries := dnsCache.Lookup("foo.xcc.test")
 				Expect(cacheEntries).NotTo(BeEmpty())
-				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com", "bar.com", "baz.com"))
+				Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com"))
+			})
+
+			When("there are (invalidly) multiple addresses in the EndpointSlice", func() {
+				var buffer *gbytes.Buffer
+
+				BeforeEach(func() {
+					endpointSlice.AddressType = discoveryv1beta1.AddressTypeFQDN
+					endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+						{
+							Addresses: []string{"foo.com", "bar.com"},
+						},
+						{
+							Addresses: []string{"baz.com"},
+						},
+					}
+					err := kubeClient.Update(context.Background(), endpointSlice)
+					Expect(err).NotTo(HaveOccurred())
+
+					buffer = gbytes.NewBuffer()
+
+					logger := zap.New(
+						zap.UseDevMode(true),
+						zap.WriteTo(buffer),
+					)
+
+					endpointSliceReconciler.Log = logger.WithName("controllers").WithName("EndpointSlice")
+				})
+
+				It("prints a warning message, still returns all the domain names on lookup", func() {
+					_, err := endpointSliceReconciler.Reconcile(context.Background(), req)
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(buffer).Should(gbytes.Say(`DNS entry for \\"foo.xcc.test\\" is in an invalid state.`))
+
+					cacheEntries := dnsCache.Lookup("foo.xcc.test")
+					Expect(cacheEntries).NotTo(BeEmpty())
+					Expect(cacheEntriesToAddresses(cacheEntries)).To(ConsistOf("foo.com", "bar.com", "baz.com"))
+				})
+
 			})
 		})
 

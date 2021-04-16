@@ -5,6 +5,7 @@ package endpointslicedns
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 
@@ -161,4 +162,36 @@ func (d *DNSCache) SetPopulated() {
 	d.mutex.Lock()
 	d.isPopulated = true
 	d.mutex.Unlock()
+}
+
+// IsValid returns true if and only if the DNS entry associated with FQDN is
+// valid. DNS entries may have multiple associated IPs as long as there is no
+// associated CNAME alias. If the DNS entry represents a CNAME alias, it must be
+// the only alias and may not also represent other RR types. (RFC 1034, Section
+// 3.6.2).
+func (d *DNSCache) IsValid(fqdn string) bool {
+	entries := d.Lookup(fqdn)
+	if len(entries) == 0 {
+		return false
+	}
+
+	addressCount := 0
+	hasCNAMEEntry := false
+	for _, entry := range entries {
+		for _, address := range entry.Addresses {
+			if hasCNAMEEntry {
+				return false
+			}
+			ip := net.ParseIP(address)
+			if ip != nil {
+				addressCount += 1
+			} else {
+				if addressCount > 0 {
+					return false
+				}
+				hasCNAMEEntry = true
+			}
+		}
+	}
+	return true
 }
