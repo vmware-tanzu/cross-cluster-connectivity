@@ -109,6 +109,17 @@ function check_dependencies() {
   command -v docker >/dev/null 2>&1 || fatal "docker is required"
 }
 
+function check_local_images() {
+  local images
+  local tip_msg=$'\nplease, build the image or pull it from the registry'
+
+  images="$(docker images --format="{{.Repository}}:{{.Tag}}")"
+
+  echo "${images}" | grep -q "${XCC_DNS_CONTROLLER_IMAGE}" || fatal "cannot find local image: ${XCC_DNS_CONTROLLER_IMAGE} ${tip_msg}"
+  echo "${images}" | grep -q "${DNS_SERVER_IMAGE}" || fatal "cannot find local image: ${DNS_SERVER_IMAGE} ${tip_msg}"
+  echo "${images}" | grep -q "${DNS_CONFIG_PATCHER_IMAGE}" || fatal "cannot find local image: ${DNS_CONFIG_PATCHER_IMAGE} ${tip_msg}"
+}
+
 ################################################################################
 ##                                   funcs
 ################################################################################
@@ -280,6 +291,7 @@ function install_cert_manager_and_metatallb() {
 
 function e2e_up() {
   check_dependencies
+  check_local_images
   setup_management_cluster
   kubectl_mgc create namespace dev-team
 
@@ -294,12 +306,12 @@ function e2e_up() {
     update_image_repo_and_kubectl_apply "${cluster}" https://docs.projectcalico.org/v3.8/manifests/calico.yaml
   done
 
-
   for cluster in ${CLUSTER_A} ${CLUSTER_B}; do
     wait_for_ready_nodes "${cluster}"
     wait_for_external_ips "dev-team" "${cluster}"
     install_cert_manager_and_metatallb "${cluster}"
     msg "Loading docker images on ${cluster}"
+
     kind load docker-image "${DNS_SERVER_IMAGE}" --name "${cluster}"
     kind load docker-image "${DNS_CONFIG_PATCHER_IMAGE}" --name "${cluster}"
     msg "Installing multi-cluster DNS on ${cluster}"
