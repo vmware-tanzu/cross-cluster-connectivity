@@ -34,7 +34,7 @@ test-full: test-unit build-images e2e-down e2e-up test-cluster-api-dns
 
 .PHONY: test-unit
 test-unit:
-	ginkgo -race -p -r $(PWD)/pkg
+	ginkgo -tags=-mod=mod -race -p -r $(PWD)/pkg
 
 .PHONY: test-cluster-api-dns
 test-cluster-api-dns:
