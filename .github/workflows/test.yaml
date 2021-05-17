@@ -37,8 +37,8 @@ jobs:
           # pinning to 1.15.x, can be depinned when https://github.com/golang/go/issues/44129 is resolved.
           go-version: '~1.15.12'
       - run: go get -u github.com/onsi/ginkgo/ginkgo
-      # pinning to 1.15.x for previously mentioned reasons
-      - run: GOBUILD_VERSION=1.15.12-buster make build-images
+      # pinning to 1.15.x for aformentioned reasons
+      - run: make build-images GOBUILD_VERSION=1.15.12-buster
       - name: Download clusterctl
         run: |
           sudo wget -O /usr/local/bin/clusterctl "https://github.com/kubernetes-sigs/cluster-api/releases/download/v${VERSION}/clusterctl-linux-amd64"
@@ -51,7 +51,24 @@ jobs:
           sudo chmod +x /usr/local/bin/ytt
         env:
           VERSION: 0.30.0
-      - run: make e2e-up
+      - name: Download kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        env:
+          VERSION: 0.10.0
+      - name: Download kind
+        run: |
+          sudo wget -O /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${VERSION}/kind-linux-amd64"
+          sudo chmod +x /usr/local/bin/kind
+        env:
+          VERSION: 0.10.0
+      - name: Download kustomize
+        run: |
+          GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3
+      - run: |
+          kind get clusters
+          make e2e-up
       - name: Run e2e tests
         run: |
           set +e
