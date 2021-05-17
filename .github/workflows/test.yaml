@@ -66,9 +66,7 @@ jobs:
       - name: Download kustomize
         run: |
           GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3
-      - run: |
-          kind get clusters
-          make e2e-up
+      - run: make e2e-up
       - name: Run e2e tests
         run: |
           set +e
