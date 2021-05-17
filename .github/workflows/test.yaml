@@ -37,7 +37,8 @@ jobs:
           # pinning to 1.15.x, can be depinned when https://github.com/golang/go/issues/44129 is resolved.
           go-version: '~1.15.12'
       - run: go get -u github.com/onsi/ginkgo/ginkgo
-      - run: make build-images
+      # pinning to 1.15.x for previously mentioned reasons
+      - run: GOBUILD_VERSION=1.15.12-buster make build-images
       - name: Download clusterctl
         run: |
           sudo wget -O /usr/local/bin/clusterctl "https://github.com/kubernetes-sigs/cluster-api/releases/download/v${VERSION}/clusterctl-linux-amd64"

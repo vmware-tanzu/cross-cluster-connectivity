@@ -1,7 +1,8 @@
 # Copyright (c) 2020 VMware, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang AS build
+ARG GOVERSION=latest
+FROM golang:$GOVERSION AS build
 WORKDIR /build
 
 COPY go.mod go.sum /build/

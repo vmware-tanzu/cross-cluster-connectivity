@@ -1,6 +1,8 @@
 IMAGE_REGISTRY ?= gcr.io/tanzu-xcc
 IMAGE_TAG ?= dev
 
+GOBUILD_VERSION ?= latest
+
 DNS_SERVER_IMAGE := $(IMAGE_REGISTRY)/dns-server:$(IMAGE_TAG)
 XCC_DNS_CONTROLLER_IMAGE := $(IMAGE_REGISTRY)/xcc-dns-controller:$(IMAGE_TAG)
 DNS_CONFIG_PATCHER_IMAGE := $(IMAGE_REGISTRY)/dns-config-patcher:$(IMAGE_TAG)
@@ -48,15 +50,15 @@ build-images: build-dns-server build-xcc-dns-controller build-dns-config-patcher
 
 .PHONY: build-dns-server
 build-dns-server:
-	docker build -f cmd/dns-server/Dockerfile -t $(DNS_SERVER_IMAGE) .
+	docker build --build-arg GOVERSION=$(GOBUILD_VERSION) -f cmd/dns-server/Dockerfile -t $(DNS_SERVER_IMAGE) .
 
 .PHONY: build-dns-config-patcher
 build-dns-config-patcher:
-	docker build -f cmd/dns-config-patcher/Dockerfile -t $(DNS_CONFIG_PATCHER_IMAGE) .
+	docker build --build-arg GOVERSION=$(GOBUILD_VERSION) -f cmd/dns-config-patcher/Dockerfile -t $(DNS_CONFIG_PATCHER_IMAGE) .
 
 .PHONY: build-xcc-dns-controller
 build-xcc-dns-controller:
-	docker build -f cmd/xcc-dns-controller/Dockerfile -t $(XCC_DNS_CONTROLLER_IMAGE) .
+	docker build --build-arg GOVERSION=$(GOBUILD_VERSION) -f cmd/xcc-dns-controller/Dockerfile -t $(XCC_DNS_CONTROLLER_IMAGE) .
 
 .PHONY: e2e-load-images
 e2e-load-images: e2e-load-dns-server-image e2e-load-xcc-dns-controller-image e2e-load-dns-config-patcher-image
