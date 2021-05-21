@@ -15,7 +15,7 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.3
 	github.com/openzipkin/zipkin-go v0.2.5 // indirect
-	github.com/prometheus/common v0.15.0
+	github.com/prometheus/common v0.15.0 // indirect
 	github.com/tinylib/msgp v1.1.4 // indirect
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9 // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
