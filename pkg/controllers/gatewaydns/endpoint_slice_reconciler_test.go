@@ -317,14 +317,14 @@ var _ = Describe("Endpoint Slice Reconciler", func() {
 
 			copy(existingEndpointSlices, endpointSlices)
 			existingEndpointSlices[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = "*.user.mangled"
-			existingEndpointSlices[0].AddressType = discoveryv1beta1.AddressTypeIP
+			existingEndpointSlices[0].AddressType = discoveryv1beta1.AddressTypeIPv4
 			existingEndpointSlices[0].Endpoints = []discoveryv1beta1.Endpoint{{Addresses: []string{"1.1.0.3"}}}
 			existingEndpointSlices[0].Ports = []discoveryv1beta1.EndpointPort{{Name: stringPtr("port")}}
 			Expect(clusterClient0.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
 
 			copy(existingEndpointSlices, endpointSlices)
 			existingEndpointSlices[0].Annotations[connectivityv1alpha1.DNSHostnameAnnotation] = "*.user.mangled"
-			existingEndpointSlices[0].AddressType = discoveryv1beta1.AddressTypeIP
+			existingEndpointSlices[0].AddressType = discoveryv1beta1.AddressTypeIPv4
 			existingEndpointSlices[0].Endpoints = []discoveryv1beta1.Endpoint{{Addresses: []string{"1.1.0.3"}}}
 			existingEndpointSlices[0].Ports = []discoveryv1beta1.EndpointPort{{Name: stringPtr("port")}}
 			Expect(clusterClient1.Create(context.Background(), &existingEndpointSlices[0])).ToNot(HaveOccurred())
