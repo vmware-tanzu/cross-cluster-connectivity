@@ -11,7 +11,6 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/prometheus/common/log"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,7 +34,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	log.Debug("Setting up crosscluster dns controller")
+	setupLog.Info("Setting up crosscluster dns controller")
 
 	dnsPlugin, err := setupController(c)
 	if err != nil {

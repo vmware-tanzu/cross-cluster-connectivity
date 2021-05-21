@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -57,7 +56,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	var gatewayDNS connectivityv1alpha1.GatewayDNS
 	if err := r.Client.Get(ctx, req.NamespacedName, &gatewayDNS); err != nil {
 		if k8serrors.IsNotFound(err) {
-			err := r.convergeOnClustersForGatewayDNS(ctx, req.NamespacedName, nil)
+			err := r.convergeOnClustersForGatewayDNS(ctx, log, req.NamespacedName, nil)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -78,7 +77,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	clusterGateways := r.ClusterGatewayCollector.GetGatewaysForClusters(ctx, gatewayDNS, clustersWithEndpoints)
 
-	err = r.convergeOnClustersForGatewayDNS(ctx, req.NamespacedName, clusterGateways)
+	err = r.convergeOnClustersForGatewayDNS(ctx, log, req.NamespacedName, clusterGateways)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -87,7 +86,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func (r *GatewayDNSReconciler) convergeOnClustersForGatewayDNS(ctx context.Context, namespacedName types.NamespacedName, clusterGateways []ClusterGateway) error {
+func (r *GatewayDNSReconciler) convergeOnClustersForGatewayDNS(ctx context.Context, log logr.Logger, namespacedName types.NamespacedName, clusterGateways []ClusterGateway) error {
 	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
 	err := r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(namespacedName.Namespace))
 	if err != nil {
