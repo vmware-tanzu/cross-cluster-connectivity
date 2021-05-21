@@ -2,7 +2,7 @@
 name: Feature request
 about: Suggest an idea for this project
 title: ''
-labels: kind/feature, lifecycle/needs-triage
+labels: kind/feature
 assignees: ''
 
 ---
