@@ -111,7 +111,7 @@ function check_dependencies() {
 
 function check_local_images() {
   local images
-  local tip_msg=$'\nplease, build the image or pull it from the registry'
+  local tip_msg=$'\nplease, build the images using make build-images'
 
   images="$(docker images --format="{{.Repository}}:{{.Tag}}")"
 
