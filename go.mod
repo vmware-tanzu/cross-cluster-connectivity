@@ -1,6 +1,6 @@
 module github.com/vmware-tanzu/cross-cluster-connectivity
 
-go 1.13
+go 1.15
 
 require (
 	github.com/DataDog/datadog-go v4.2.0+incompatible // indirect
