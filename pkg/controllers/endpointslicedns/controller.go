@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,7 +33,7 @@ type EndpointSliceReconciler struct {
 func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("endpointslice", req.NamespacedName)
 
-	var endpointSlice discoveryv1beta1.EndpointSlice
+	var endpointSlice discoveryv1.EndpointSlice
 	if err := r.Client.Get(ctx, req.NamespacedName, &endpointSlice); err != nil {
 		if k8serrors.IsNotFound(err) {
 			entry := r.RecordsCache.LookupByResourceKey(req.String())
@@ -53,7 +53,7 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	addresses := []string{}
 
-	if endpointSlice.AddressType == discoveryv1beta1.AddressTypeIPv4 {
+	if endpointSlice.AddressType == discoveryv1.AddressTypeIPv4 {
 		for _, endpoint := range endpointSlice.Endpoints {
 			for _, address := range endpoint.Addresses {
 				ip := net.ParseIP(address)
@@ -64,7 +64,7 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				}
 			}
 		}
-	} else if endpointSlice.AddressType == discoveryv1beta1.AddressTypeFQDN {
+	} else if endpointSlice.AddressType == discoveryv1.AddressTypeFQDN {
 		for _, endpoint := range endpointSlice.Endpoints {
 			addresses = append(addresses, endpoint.Addresses...)
 		}
@@ -100,6 +100,6 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *EndpointSliceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&discoveryv1beta1.EndpointSlice{}).
+		For(&discoveryv1.EndpointSlice{}).
 		Complete(r)
 }

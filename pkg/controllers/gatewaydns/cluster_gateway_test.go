@@ -9,7 +9,7 @@ import (
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -93,7 +93,7 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-foo.cluster-namespace-foo.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
-		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+		Expect(endpointSlice.AddressType).To(Equal(discoveryv1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.1"))
 		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-foo-cluster-name-foo-gateway"))
@@ -103,7 +103,7 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-bar.cluster-namespace-bar.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
-		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+		Expect(endpointSlice.AddressType).To(Equal(discoveryv1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.2"))
 		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-bar-cluster-name-bar-gateway"))
@@ -113,7 +113,7 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.Namespace).To(Equal("xcc-dns"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]).To(Equal("*.gateway.cluster-name-baz.cluster-namespace-baz.clusters.xcc.test"))
 		Expect(endpointSlice.Annotations[connectivityv1alpha1.GatewayDNSRefAnnotation]).To(Equal("gateway-dns-namespace/gateway-dns-name"))
-		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
+		Expect(endpointSlice.AddressType).To(Equal(discoveryv1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.3"))
 		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-baz-cluster-name-baz-gateway"))

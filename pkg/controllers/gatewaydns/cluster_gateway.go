@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -23,7 +23,7 @@ type ClusterGateway struct {
 	GatewayDNSNamespacedName types.NamespacedName
 }
 
-func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
+func (cg ClusterGateway) ToEndpointSlice() discoveryv1.EndpointSlice {
 	hostname := fmt.Sprintf("*.gateway.%s.%s.clusters.%s",
 		cg.ClusterNamespacedName.Name,
 		cg.ClusterNamespacedName.Namespace,
@@ -34,7 +34,7 @@ func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
 		addresses = append(addresses, ingress.IP)
 	}
 
-	return discoveryv1beta1.EndpointSlice{
+	return discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cg.endpointSliceName(),
 			Namespace: cg.ControllerNamespace,
@@ -46,8 +46,8 @@ func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
 				"kubernetes.io/service-name": cg.endpointSliceName(),
 			},
 		},
-		AddressType: discoveryv1beta1.AddressTypeIPv4,
-		Endpoints: []discoveryv1beta1.Endpoint{
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{
 			{
 				Addresses: addresses,
 			},
@@ -63,6 +63,6 @@ func (cg ClusterGateway) EndpointSliceKey() string {
 	return fmt.Sprintf("%s/%s", cg.ControllerNamespace, cg.endpointSliceName())
 }
 
-func EndpointSliceKey(endpointSlice discoveryv1beta1.EndpointSlice) string {
+func EndpointSliceKey(endpointSlice discoveryv1.EndpointSlice) string {
 	return fmt.Sprintf("%s/%s", endpointSlice.Namespace, endpointSlice.Name)
 }

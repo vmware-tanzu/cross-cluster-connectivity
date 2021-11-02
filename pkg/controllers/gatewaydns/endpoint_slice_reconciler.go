@@ -13,10 +13,10 @@ import (
 	"github.com/go-logr/logr"
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,7 +27,7 @@ type EndpointSliceReconciler struct {
 }
 
 func (e *EndpointSliceReconciler) ConvergeToClusters(ctx context.Context,
-	clusters []clusterv1alpha3.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredClusterGateways []ClusterGateway) []error {
+	clusters []clusterv1beta1.Cluster, gatewayDNSNamespacedName types.NamespacedName, desiredClusterGateways []ClusterGateway) []error {
 	var errors []error
 
 	for _, cluster := range clusters {
@@ -75,7 +75,7 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.
 		err = clusterClient.Create(ctx, &endpointSlice)
 		if err != nil {
 			if k8serrors.IsAlreadyExists(err) {
-				var existingEndpointSlice discoveryv1beta1.EndpointSlice
+				var existingEndpointSlice discoveryv1.EndpointSlice
 				namespacedName := types.NamespacedName{
 					Namespace: endpointSlice.Namespace,
 					Name:      endpointSlice.Name,
@@ -117,9 +117,9 @@ func (e *EndpointSliceReconciler) convergeCluster(ctx context.Context, log logr.
 }
 
 type ClusterDiff struct {
-	undesired []discoveryv1beta1.EndpointSlice
-	missing   []discoveryv1beta1.EndpointSlice
-	changed   []discoveryv1beta1.EndpointSlice
+	undesired []discoveryv1.EndpointSlice
+	missing   []discoveryv1.EndpointSlice
+	changed   []discoveryv1.EndpointSlice
 }
 
 func (e *EndpointSliceReconciler) diffCluster(ctx context.Context,
@@ -128,13 +128,13 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context,
 	clusterClient client.Client,
 	desiredClusterGateways []ClusterGateway) (ClusterDiff, error) {
 
-	existingEndpointSliceList := &discoveryv1beta1.EndpointSliceList{}
+	existingEndpointSliceList := &discoveryv1.EndpointSliceList{}
 	err := clusterClient.List(ctx, existingEndpointSliceList, client.InNamespace(e.Namespace))
 	if err != nil {
 		return ClusterDiff{}, err
 	}
 
-	existingEndpointSliceMap := make(map[string]discoveryv1beta1.EndpointSlice, len(existingEndpointSliceList.Items))
+	existingEndpointSliceMap := make(map[string]discoveryv1.EndpointSlice, len(existingEndpointSliceList.Items))
 	for _, existingEndpointSlice := range existingEndpointSliceList.Items {
 		if _, ok := existingEndpointSlice.Annotations[connectivityv1alpha1.DNSHostnameAnnotation]; !ok {
 			continue
@@ -183,7 +183,7 @@ func (e *EndpointSliceReconciler) diffCluster(ctx context.Context,
 	return clusterDiff, nil
 }
 
-func merge(source, dest discoveryv1beta1.EndpointSlice) discoveryv1beta1.EndpointSlice {
+func merge(source, dest discoveryv1.EndpointSlice) discoveryv1.EndpointSlice {
 	if dest.Annotations == nil {
 		dest.Annotations = map[string]string{}
 	}
@@ -195,14 +195,14 @@ func merge(source, dest discoveryv1beta1.EndpointSlice) discoveryv1beta1.Endpoin
 	return dest
 }
 
-func compareEndpointSlices(a, b discoveryv1beta1.EndpointSlice) bool {
+func compareEndpointSlices(a, b discoveryv1.EndpointSlice) bool {
 	return a.Annotations[connectivityv1alpha1.DNSHostnameAnnotation] == b.Annotations[connectivityv1alpha1.DNSHostnameAnnotation] &&
 		a.AddressType == b.AddressType &&
 		reflect.DeepEqual(a.Endpoints, b.Endpoints) &&
 		reflect.DeepEqual(a.Ports, b.Ports)
 }
 
-func flattenEndpoints(endpoints []discoveryv1beta1.Endpoint) []string {
+func flattenEndpoints(endpoints []discoveryv1.Endpoint) []string {
 	var addresses []string
 	for _, endpoint := range endpoints {
 		addresses = append(addresses, endpoint.Addresses...)
