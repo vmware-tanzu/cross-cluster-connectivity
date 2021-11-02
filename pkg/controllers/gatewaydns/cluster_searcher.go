@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 type ClusterSearcher struct {
@@ -18,14 +18,14 @@ type ClusterSearcher struct {
 }
 
 func (cs *ClusterSearcher) ListMatchingClusters(ctx context.Context,
-	gatewayDNS connectivityv1alpha1.GatewayDNS) ([]clusterv1alpha3.Cluster, error) {
+	gatewayDNS connectivityv1alpha1.GatewayDNS) ([]clusterv1beta1.Cluster, error) {
 
 	selector, err := metav1.LabelSelectorAsSelector(&gatewayDNS.Spec.ClusterSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	var matchingClusters clusterv1alpha3.ClusterList
+	var matchingClusters clusterv1beta1.ClusterList
 	err = cs.Client.List(ctx,
 		&matchingClusters,
 		client.MatchingLabelsSelector{Selector: selector},

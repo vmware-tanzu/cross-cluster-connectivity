@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -87,7 +87,7 @@ func (r *GatewayDNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 func (r *GatewayDNSReconciler) convergeOnClustersForGatewayDNS(ctx context.Context, log logr.Logger, namespacedName types.NamespacedName, clusterGateways []ClusterGateway) error {
-	var clustersInGatewayDNSNamespace clusterv1alpha3.ClusterList
+	var clustersInGatewayDNSNamespace clusterv1beta1.ClusterList
 	err := r.Client.List(ctx, &clustersInGatewayDNSNamespace, client.InNamespace(namespacedName.Namespace))
 	if err != nil {
 		log.Error(err, "Failed to list clusters in gateway dns namespace")
@@ -120,7 +120,7 @@ func (r *GatewayDNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		).
 		Watches(
-			&source.Kind{Type: &clusterv1alpha3.Cluster{}},
+			&source.Kind{Type: &clusterv1beta1.Cluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.ClusterToGatewayDNS),
 		).
 		Complete(r)
@@ -193,7 +193,7 @@ func (r *GatewayDNSReconciler) ClusterToGatewayDNS(o client.Object) []reconcile.
 	return matchingGatewayDNS
 }
 
-func clustersToNames(clusters []clusterv1alpha3.Cluster) []string {
+func clustersToNames(clusters []clusterv1beta1.Cluster) []string {
 	var names []string
 	for _, cluster := range clusters {
 		names = append(names, fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))

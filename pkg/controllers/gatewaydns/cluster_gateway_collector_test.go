@@ -11,12 +11,12 @@ import (
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns/gatewaydnsfakes"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -34,10 +34,10 @@ var _ = Describe("Cluster Gateway Collector", func() {
 		clientProvider *gatewaydnsfakes.FakeClientProvider
 
 		gatewayDNS *connectivityv1alpha1.GatewayDNS
-		cluster0   clusterv1alpha3.Cluster
-		cluster1   clusterv1alpha3.Cluster
+		cluster0   clusterv1beta1.Cluster
+		cluster1   clusterv1beta1.Cluster
 
-		clusters        []clusterv1alpha3.Cluster
+		clusters        []clusterv1beta1.Cluster
 		gatewayService0 *corev1.Service
 		gatewayService1 *corev1.Service
 
@@ -48,8 +48,8 @@ var _ = Describe("Cluster Gateway Collector", func() {
 		scheme := runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(scheme)
 		_ = connectivityv1alpha1.AddToScheme(scheme)
-		_ = clusterv1alpha3.AddToScheme(scheme)
-		_ = discoveryv1beta1.AddToScheme(scheme)
+		_ = clusterv1beta1.AddToScheme(scheme)
+		_ = discoveryv1.AddToScheme(scheme)
 
 		clusterClient0 = fake.NewClientBuilder().WithScheme(scheme).Build()
 		clusterClient1 = fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -93,7 +93,7 @@ var _ = Describe("Cluster Gateway Collector", func() {
 			Log:            log,
 			ClientProvider: clientProvider,
 		}
-		cluster0 = clusterv1alpha3.Cluster{
+		cluster0 = clusterv1beta1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cluster-name-0",
 				Namespace: "some-namespace",
@@ -102,7 +102,7 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				},
 			},
 		}
-		cluster1 = clusterv1alpha3.Cluster{
+		cluster1 = clusterv1beta1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cluster-name-1",
 				Namespace: "some-namespace",
@@ -111,7 +111,7 @@ var _ = Describe("Cluster Gateway Collector", func() {
 				},
 			},
 		}
-		clusters = []clusterv1alpha3.Cluster{cluster0, cluster1}
+		clusters = []clusterv1beta1.Cluster{cluster0, cluster1}
 
 		gatewayService0 = &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{

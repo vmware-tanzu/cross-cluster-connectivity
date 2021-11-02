@@ -18,8 +18,8 @@ import (
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/gatewaydns"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
-	clusterv1alpha4 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	discoveryv1 "k8s.io/api/discovery/v1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -31,8 +31,8 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = connectivityv1alpha1.AddToScheme(scheme)
-	_ = clusterv1alpha4.AddToScheme(scheme)
-	_ = discoveryv1beta1.AddToScheme(scheme)
+	_ = clusterv1beta1.AddToScheme(scheme)
+	_ = discoveryv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -83,8 +83,8 @@ func main() {
 	}
 
 	reconcilerLog := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
-	clusterCacheTrackerLog := reconcilerLog.WithName("clustercachetracker")
-	clusterCacheTracker, err := remote.NewClusterCacheTracker(clusterCacheTrackerLog, mgr)
+	clusterCacheTrackerOptions := remote.ClusterCacheTrackerOptions{Log: reconcilerLog.WithName("clustercachetracker")}
+	clusterCacheTracker, err := remote.NewClusterCacheTracker(mgr, clusterCacheTrackerOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to create clusterCacheTracker", "clusterCacheTracker", "GatewayDNS")
 		os.Exit(1)

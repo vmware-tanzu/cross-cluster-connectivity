@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 type ClusterGatewayCollector struct {
@@ -26,7 +26,7 @@ type ClusterGatewayCollector struct {
 
 func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 	gatewayDNS connectivityv1alpha1.GatewayDNS,
-	clusters []clusterv1alpha3.Cluster) []ClusterGateway {
+	clusters []clusterv1beta1.Cluster) []ClusterGateway {
 
 	gatewayDNSSpecService := newNamespacedNameFromString(gatewayDNS.Spec.Service)
 
@@ -60,7 +60,7 @@ func (e *ClusterGatewayCollector) GetGatewaysForClusters(ctx context.Context,
 
 func (e *ClusterGatewayCollector) getLoadBalancerServiceForCluster(ctx context.Context,
 	serviceNamespacedName types.NamespacedName,
-	cluster clusterv1alpha3.Cluster) (*corev1.Service, error) {
+	cluster clusterv1beta1.Cluster) (*corev1.Service, error) {
 	log := e.Log.WithValues("Cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 
 	clusterClient, err := e.ClientProvider.GetClient(ctx, types.NamespacedName{

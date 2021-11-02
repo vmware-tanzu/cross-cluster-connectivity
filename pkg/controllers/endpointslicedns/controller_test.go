@@ -8,7 +8,7 @@ import (
 
 	connectivityv1alpha1 "github.com/vmware-tanzu/cross-cluster-connectivity/apis/connectivity/v1alpha1"
 	"github.com/vmware-tanzu/cross-cluster-connectivity/pkg/controllers/endpointslicedns"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -28,7 +28,7 @@ var _ = Describe("Reconcile", func() {
 		dnsCache                *endpointslicedns.DNSCache
 		endpointSliceReconciler *endpointslicedns.EndpointSliceReconciler
 
-		endpointSlice *discoveryv1beta1.EndpointSlice
+		endpointSlice *discoveryv1.EndpointSlice
 
 		req         ctrl.Request
 		expectedIPs []string
@@ -39,7 +39,7 @@ var _ = Describe("Reconcile", func() {
 
 		scheme := runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(scheme)
-		_ = discoveryv1beta1.AddToScheme(scheme)
+		_ = discoveryv1.AddToScheme(scheme)
 
 		kubeClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 
@@ -55,14 +55,14 @@ var _ = Describe("Reconcile", func() {
 			RecordsCache: dnsCache,
 		}
 
-		endpointSlice = &discoveryv1beta1.EndpointSlice{
+		endpointSlice = &discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "some-endpoint-slice",
 				Namespace:   "cross-cluster-connectivity",
 				Annotations: map[string]string{},
 			},
-			AddressType: discoveryv1beta1.AddressTypeIPv4,
-			Endpoints: []discoveryv1beta1.Endpoint{
+			AddressType: discoveryv1.AddressTypeIPv4,
+			Endpoints: []discoveryv1.Endpoint{
 				{
 					Addresses: []string{"1.2.3.4", "1.2.3.5"},
 				},
@@ -124,7 +124,7 @@ var _ = Describe("Reconcile", func() {
 				err := kubeClient.Update(context.Background(), endpointSlice)
 				Expect(err).NotTo(HaveOccurred())
 
-				anotherEndpointSlice := &discoveryv1beta1.EndpointSlice{
+				anotherEndpointSlice := &discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "another-endpoint-slice",
 						Namespace: "cross-cluster-connectivity",
@@ -132,8 +132,8 @@ var _ = Describe("Reconcile", func() {
 							connectivityv1alpha1.DNSHostnameAnnotation: "foo.xcc.test",
 						},
 					},
-					AddressType: discoveryv1beta1.AddressTypeIPv4,
-					Endpoints: []discoveryv1beta1.Endpoint{
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
 						{
 							Addresses: []string{"2.2.3.4", "2.2.3.5"},
 						},
@@ -148,7 +148,7 @@ var _ = Describe("Reconcile", func() {
 				err = kubeClient.Create(context.Background(), anotherEndpointSlice)
 				Expect(err).NotTo(HaveOccurred())
 
-				differentEndpointSlice := &discoveryv1beta1.EndpointSlice{
+				differentEndpointSlice := &discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "different-endpoint-slice",
 						Namespace: "cross-cluster-connectivity",
@@ -156,8 +156,8 @@ var _ = Describe("Reconcile", func() {
 							connectivityv1alpha1.DNSHostnameAnnotation: "bar.xcc.test",
 						},
 					},
-					AddressType: discoveryv1beta1.AddressTypeIPv4,
-					Endpoints: []discoveryv1beta1.Endpoint{
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
 						{
 							Addresses: []string{"3.2.3.4", "3.2.3.5"},
 						},
@@ -211,8 +211,8 @@ var _ = Describe("Reconcile", func() {
 
 		When("the address type is FQDN", func() {
 			BeforeEach(func() {
-				endpointSlice.AddressType = discoveryv1beta1.AddressTypeFQDN
-				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+				endpointSlice.AddressType = discoveryv1.AddressTypeFQDN
+				endpointSlice.Endpoints = []discoveryv1.Endpoint{
 					{
 						Addresses: []string{"foo.com"},
 					},
@@ -234,8 +234,8 @@ var _ = Describe("Reconcile", func() {
 				var buffer *gbytes.Buffer
 
 				BeforeEach(func() {
-					endpointSlice.AddressType = discoveryv1beta1.AddressTypeFQDN
-					endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+					endpointSlice.AddressType = discoveryv1.AddressTypeFQDN
+					endpointSlice.Endpoints = []discoveryv1.Endpoint{
 						{
 							Addresses: []string{"foo.com", "bar.com"},
 						},
@@ -272,8 +272,8 @@ var _ = Describe("Reconcile", func() {
 
 		When("the address type is IPv6", func() {
 			BeforeEach(func() {
-				endpointSlice.AddressType = discoveryv1beta1.AddressTypeIPv6
-				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+				endpointSlice.AddressType = discoveryv1.AddressTypeIPv6
+				endpointSlice.Endpoints = []discoveryv1.Endpoint{
 					{Addresses: []string{"::1"}},
 				}
 				err := kubeClient.Update(context.Background(), endpointSlice)
@@ -291,7 +291,7 @@ var _ = Describe("Reconcile", func() {
 
 		When("an invalid IP is provided as part of an IPv4 EndpointSlice", func() {
 			BeforeEach(func() {
-				endpointSlice.Endpoints = append(endpointSlice.Endpoints, discoveryv1beta1.Endpoint{
+				endpointSlice.Endpoints = append(endpointSlice.Endpoints, discoveryv1.Endpoint{
 					Addresses: []string{"not.an.ip"},
 				})
 				err := kubeClient.Update(context.Background(), endpointSlice)
@@ -321,7 +321,7 @@ var _ = Describe("Reconcile", func() {
 
 				By("updating the EndpointSlice and reconciling again")
 
-				endpointSlice.Endpoints = []discoveryv1beta1.Endpoint{
+				endpointSlice.Endpoints = []discoveryv1.Endpoint{
 					{Addresses: []string{"1.2.3.4"}},
 				}
 				err = kubeClient.Update(context.Background(), endpointSlice)
