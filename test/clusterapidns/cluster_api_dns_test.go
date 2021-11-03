@@ -189,7 +189,7 @@ var _ = Describe("ClusterAPI DNS Test", func() {
 
 func curlOnCluster(kubeConfig, fqdn string) string {
 	output, _ := kubectlWithConfig(kubeConfig,
-		"run", "nginx-test", "-i", "--rm", "--image=curlimages/curl", "--restart=Never", "--",
+		"run", "nginx-test", "-i", "--rm", "--image=curlimages/curl:7.68.0", "--restart=Never", "--",
 		"curl", "-v", "-k", "--connect-timeout", curlConnectTimeoutInSeconds, fmt.Sprintf("https://%s", fqdn))
 	return string(output)
 }

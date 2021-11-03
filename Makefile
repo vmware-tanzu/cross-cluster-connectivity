@@ -22,11 +22,11 @@ check: generate test-unit
 
 .PHONY: e2e-up
 e2e-up:
-	bash hack/e2e.sh -u
+	bash hack/e2e-up.sh
 
 .PHONY: e2e-down
 e2e-down:
-	bash hack/e2e.sh -d
+	bash hack/e2e-down.sh
 
 .PHONY: test
 test: test-unit test-cluster-api-dns

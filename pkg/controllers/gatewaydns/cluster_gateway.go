@@ -42,6 +42,9 @@ func (cg ClusterGateway) ToEndpointSlice() discoveryv1beta1.EndpointSlice {
 				connectivityv1alpha1.DNSHostnameAnnotation:   hostname,
 				connectivityv1alpha1.GatewayDNSRefAnnotation: cg.GatewayDNSNamespacedName.String(),
 			},
+			Labels: map[string]string{
+				"kubernetes.io/service-name": cg.endpointSliceName(),
+			},
 		},
 		AddressType: discoveryv1beta1.AddressTypeIPv4,
 		Endpoints: []discoveryv1beta1.Endpoint{

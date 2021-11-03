@@ -96,6 +96,7 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.1"))
+		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-foo-cluster-name-foo-gateway"))
 
 		endpointSlice = clusterGateways[1].ToEndpointSlice()
 		Expect(endpointSlice.Name).To(Equal("cluster-namespace-bar-cluster-name-bar-gateway"))
@@ -105,6 +106,7 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.2"))
+		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-bar-cluster-name-bar-gateway"))
 
 		endpointSlice = clusterGateways[2].ToEndpointSlice()
 		Expect(endpointSlice.Name).To(Equal("cluster-namespace-baz-cluster-name-baz-gateway"))
@@ -114,5 +116,6 @@ var _ = Describe("ClusterGateway", func() {
 		Expect(endpointSlice.AddressType).To(Equal(discoveryv1beta1.AddressTypeIPv4))
 		Expect(endpointSlice.Endpoints).To(HaveLen(1))
 		Expect(endpointSlice.Endpoints[0].Addresses).To(ConsistOf("1.1.0.3"))
+		Expect(endpointSlice.Labels["kubernetes.io/service-name"]).To(Equal("cluster-namespace-baz-cluster-name-baz-gateway"))
 	})
 })
