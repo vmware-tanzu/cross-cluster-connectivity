@@ -7,6 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17.2'
       - run: make checklicense
   run-unit-tests:
     name: Run Unit Tests
@@ -14,6 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17.2'
       - run: go get -u github.com/onsi/ginkgo/ginkgo
       - run: make test-unit
   run-e2e-tests:
@@ -26,6 +30,8 @@ jobs:
         with:
           version: latest
       - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17.2'
       - run: go get -u github.com/onsi/ginkgo/ginkgo
       - run: make build-images
       - name: Download clusterctl
