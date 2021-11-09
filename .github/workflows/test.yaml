@@ -7,7 +7,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
-      - run: go get -u github.com/google/addlicense
       - run: make checklicense
   run-unit-tests:
     name: Run Unit Tests

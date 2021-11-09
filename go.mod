@@ -7,6 +7,7 @@ require (
 	github.com/coredns/caddy v1.1.0
 	github.com/coredns/coredns v1.8.0
 	github.com/go-logr/logr v0.3.0
+	github.com/google/addlicense v1.0.0
 	github.com/google/go-cmp v0.5.3 // indirect
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9 // indirect
