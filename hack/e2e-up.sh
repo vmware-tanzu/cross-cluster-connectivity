@@ -58,8 +58,8 @@ function setup_clusters() {
 
   echo "Creating workload clusters: ${CLUSTER_A}, ${CLUSTER_B}..."
   kubectl --kubeconfig "${MANAGEMENT_CLUSTER}.kubeconfig" create namespace "dev-team"
-  clusterctl generate cluster "${CLUSTER_A}" -n dev-team --kubernetes-version v1.22.0 --flavor development --worker-machine-count 1 | kubectl apply -f -
-  clusterctl generate cluster "${CLUSTER_B}" -n dev-team --kubernetes-version v1.22.0 --flavor development --worker-machine-count 1 | kubectl apply -f -
+  clusterctl generate cluster "${CLUSTER_A}" -n dev-team --kubernetes-version v1.24.0 --flavor development --worker-machine-count 1 | kubectl apply -f -
+  clusterctl generate cluster "${CLUSTER_B}" -n dev-team --kubernetes-version v1.24.0 --flavor development --worker-machine-count 1 | kubectl apply -f -
 
   echo "Waiting for workload clusters to be ready..."
   kubectl wait --timeout=5m --for=condition=Ready=True --all -n dev-team clusters

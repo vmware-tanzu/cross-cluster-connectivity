@@ -83,7 +83,8 @@ func main() {
 	}
 
 	reconcilerLog := ctrl.Log.WithName("controllers").WithName("GatewayDNS")
-	clusterCacheTrackerOptions := remote.ClusterCacheTrackerOptions{Log: reconcilerLog.WithName("clustercachetracker")}
+	cacheTrackerLog := reconcilerLog.WithName("clustercachetracker")
+	clusterCacheTrackerOptions := remote.ClusterCacheTrackerOptions{Log: &cacheTrackerLog}
 	clusterCacheTracker, err := remote.NewClusterCacheTracker(mgr, clusterCacheTrackerOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to create clusterCacheTracker", "clusterCacheTracker", "GatewayDNS")

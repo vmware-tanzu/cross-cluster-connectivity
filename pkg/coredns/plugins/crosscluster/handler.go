@@ -26,7 +26,7 @@ func (c *CrossCluster) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	case dns.TypeSOA:
 		records, err = plugin.SOA(ctx, c, zone, state, opt)
 	case dns.TypeA:
-		records, err = plugin.A(ctx, c, zone, state, nil, opt)
+		records, _, err = plugin.A(ctx, c, zone, state, nil, opt)
 	case dns.TypeCNAME:
 		records, err = plugin.CNAME(ctx, c, zone, state, opt)
 	default:
