@@ -19,6 +19,8 @@ DNS_SERVER_IMAGE=${IMAGE_REGISTRY}/dns-server:${IMAGE_TAG}
 XCC_DNS_CONTROLLER_IMAGE=${IMAGE_REGISTRY}/xcc-dns-controller:${IMAGE_TAG}
 DNS_CONFIG_PATCHER_IMAGE=${IMAGE_REGISTRY}/dns-config-patcher:${IMAGE_TAG}
 
+export CLUSTER_TOPOLOGY=true
+
 function main() {
   check_dependencies
   check_local_images
